@@ -4,6 +4,7 @@ import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.events.PlayerJumpEvent
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features.ScaffoldSprintControlFeature
@@ -79,7 +80,13 @@ object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT) {
             event.sprint = false
         }
     }
-
+    @Suppress("unused")
+    private val jumpHandler = handler<PlayerJumpEvent> { event ->
+        if (sprintMode == SprintMode.OMNIDIRECTIONAL && shouldSprintOmnidirectional) {
+            // Allows us to sprint boost in every direction
+            event.yaw = getMovementDirectionOfInput(player.yaw, DirectionalInput(player.input))
+        }
+    }
     // DO NOT USE TREE TO MAKE SURE THAT THE ROTATIONS ARE NOT CHANGED
     private val rotationsConfigurable = RotationsConfigurable(this)
 

@@ -52,6 +52,7 @@ import net.minecraft.util.math.Vec3d
 import net.minecraft.util.math.Vec3i
 import net.minecraft.world.GameMode
 import java.util.function.Supplier
+import java.time.OffsetDateTime
 
 /**
  * An enumeration of all GSON instances used in LiquidBounce. Each instance has its own configuration,
@@ -141,7 +142,10 @@ internal val accessibleInteropGson: Gson = GsonBuilder()
  * @see GsonBuilder.registerTypeAdapter
  */
 internal fun GsonBuilder.registerCommonTypeAdapters() =
-    registerTypeHierarchyAdapter(ClosedRange::class.javaObjectType, RangeAdapter)
+    registerTypeAdapter(LocalDate::class.java, LocalDateAdapter)
+        .registerTypeAdapter(LocalDateTime::class.java, LocalDateTimeAdapter)
+        .registerTypeAdapter(OffsetDateTime::class.java, OffsetDateTimeAdapter)
+        .registerTypeHierarchyAdapter(ClosedRange::class.javaObjectType, RangeAdapter)
         .registerTypeHierarchyAdapter(IntRange::class.javaObjectType, IntRangeAdapter)
         .registerTypeHierarchyAdapter(Item::class.javaObjectType, ItemAdapter)
         .registerTypeHierarchyAdapter(Color4b::class.javaObjectType, ColorAdapter)

@@ -23,6 +23,8 @@ import kotlinx.coroutines.*
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.config.gson.GsonInstance
 import net.ccbluex.liquidbounce.config.gson.util.decode
+import net.ccbluex.liquidbounce.utils.client.logger
+import net.ccbluex.liquidbounce.mcef.utils.FileUtils as McefFileUtils
 import net.minecraft.client.texture.NativeImage
 import net.minecraft.client.texture.NativeImageBackedTexture
 import net.minecraft.util.Util
@@ -32,6 +34,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSource
 import okio.sink
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.Reader
 import java.util.concurrent.TimeUnit
@@ -43,8 +46,8 @@ fun withScope(block: suspend CoroutineScope.() -> Unit) = scope.launch { block()
 object HttpClient {
 
     val DEFAULT_AGENT = "${LiquidBounce.CLIENT_NAME}/${LiquidBounce.clientVersion}" +
-        " (${LiquidBounce.clientCommit}, ${LiquidBounce.clientBranch}, " +
-        "${if (LiquidBounce.IN_DEVELOPMENT) "dev" else "release"}, ${System.getProperty("os.name")})"
+            " (${LiquidBounce.clientCommit}, ${LiquidBounce.clientBranch}, " +
+            "${if (LiquidBounce.IN_DEVELOPMENT) "dev" else "release"}, ${System.getProperty("os.name")})"
 
     val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     val FORM_MEDIA_TYPE = "application/x-www-form-urlencoded".toMediaType()
@@ -55,12 +58,30 @@ object HttpClient {
     @get:JvmStatic
     val client: OkHttpClient = OkHttpClient.Builder()
         .dispatcher(Dispatcher(Util.getDownloadWorkerExecutor().service))
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
-        .build()
+        .addInterceptor { chain ->
+            val request = chain.request()
+            try {
+                val response = chain.proceed(request)
+
+                if (response.isSuccessful) {
+                    response
+                } else {
+                    // Response is not successful (code is not 2xx)
+                    throw HttpException(enumValueOf(request.method),
+                        request.url.toString(), response.code, response.body.string())
+                }
+            } catch (e: IOException) {
+                // Failed to request
+                logger.error("Failed to execute request ${request.method} ${request.url})", e)
+                throw e
+            }
+        }
+        .build().also(McefFileUtils::setOkHttpClient)
 
     suspend fun request(
         url: String,
@@ -76,11 +97,7 @@ object HttpClient {
             .header("User-Agent", agent)
             .build()
 
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) {
-            throw HttpException(method, url, response.code, response.body.string())
-        }
-        response
+        client.newCall(request).execute()
     }
 
     suspend fun download(url: String, file: File, agent: String = DEFAULT_AGENT) =
@@ -108,7 +125,6 @@ inline fun <reified T> Response.parse(): T {
         NativeImageBackedTexture::class.java -> body.byteStream().use { stream ->
             NativeImageBackedTexture(NativeImage.read(stream))
         } as T
-
         else -> decode<T>(body.charStream())
     }
 }
@@ -146,5 +162,5 @@ fun JsonElement.toRequestBody(): RequestBody {
 fun String.asJson() = toRequestBody(HttpClient.JSON_MEDIA_TYPE)
 fun String.asForm() = toRequestBody(HttpClient.FORM_MEDIA_TYPE)
 
-class HttpException(val method: HttpMethod, val url: String, val code: Int, val content: String) :
-    Exception("${method.name} $url failed with code $code: $content")
+class HttpException(val method: HttpMethod, val url: String, val code: Int, val content: String)
+    : Exception("${method.name} $url failed with code $code: $content")

@@ -52,13 +52,17 @@ import net.minecraft.client.gui.screen.multiplayer.ConnectScreen
  */
 object ModuleHud : ClientModule("HUD", Category.RENDER, state = true, hide = true) {
 
-    override val running = true
+    override val running
+        get() = this.enabled && !isDestructed
+
+    private val visible: Boolean
+        get() = !isHidingNow && inGame
+
     override val baseKey: String
         get() = "liquidbounce.module.hud"
 
     private var browserBrowser: Browser? = null
-    private val visible: Boolean
-        get() = !isDestructed && !isHidingNow && inGame
+
     private val blur by boolean("Blur", true)
 
     @Suppress("unused")

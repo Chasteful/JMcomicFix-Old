@@ -20,6 +20,7 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 
 import net.ccbluex.liquidbounce.config.types.Choice
 import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.event.computedOn
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
@@ -34,7 +35,6 @@ import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.render.renderEnvironmentForGUI
 import net.ccbluex.liquidbounce.utils.client.asText
 import net.ccbluex.liquidbounce.utils.entity.box
-import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.FIRST_PRIORITY
 import net.ccbluex.liquidbounce.utils.kotlin.forEachWithSelf
 import net.ccbluex.liquidbounce.utils.kotlin.proportionOfValue
 import net.ccbluex.liquidbounce.utils.kotlin.valueAtProportion
@@ -61,10 +61,8 @@ object ModuleItemTags : ClientModule("ItemTags", Category.RENDER) {
     override val baseKey: String
         get() = "liquidbounce.module.itemTags"
 
-    private val clusterSizeMode = choices(
-        "ClusterSizeMode", ClusterSizeMode.Static,
-        arrayOf(ClusterSizeMode.Static, ClusterSizeMode.Distance)
-    )
+    private val clusterSizeMode = choices("ClusterSizeMode", ClusterSizeMode.Static,
+        arrayOf(ClusterSizeMode.Static, ClusterSizeMode.Distance))
     private val scale by float("Scale", 1.5F, 0.25F..4F)
     private val renderY by float("RenderY", 0F, -2F..2F)
     private val maximumDistance by float("MaximumDistance", 128F, 1F..256F)
@@ -95,19 +93,19 @@ object ModuleItemTags : ClientModule("ItemTags", Category.RENDER) {
     private val fontRenderer
         get() = FontManager.FONT_RENDERER
 
-    private var itemEntities: Map<Vec3d, List<ItemStack>> = emptyMap()
+    private var itemEntities by computedOn<GameTickEvent, Map<Vec3d, List<ItemStack>>>(
+        initialValue = emptyMap()
+    ) { _, _ ->
+        val maxDistSquared = maximumDistance.sq()
+
+        @Suppress("UNCHECKED_CAST")
+        (world.entities.filter {
+            it is ItemEntity && it.squaredDistanceTo(player) < maxDistSquared
+        } as List<ItemEntity>).cluster()
+    }
 
     override fun disable() {
         itemEntities = emptyMap()
-    }
-
-    @Suppress("unused", "UNCHECKED_CAST")
-    private val tickHandler = handler<GameTickEvent>(priority = FIRST_PRIORITY) {
-        val maxDistSquared = maximumDistance.sq()
-
-        itemEntities = (world.entities.filter {
-            it is ItemEntity && it.squaredDistanceTo(player) < maxDistSquared
-        } as List<ItemEntity>).cluster()
     }
 
     @Suppress("unused")

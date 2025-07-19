@@ -99,6 +99,10 @@ public class MixinUtils {
                 throw new IOException("HTTP request failed with code: " + response.code());
             }
 
+            if (!response.isSuccessful()) {
+                throw new IOException("HTTP request failed with code: " + response.code());
+            }
+
             cir.setReturnValue(response.body().byteStream());
         }
     }
