@@ -2,23 +2,23 @@
     import {listen} from "../../../integration/ws";
     import type {ClientPlayerDataEvent} from "../../../integration/events";
     import type {ClientInfo, PlayerData} from "../../../integration/types";
-    import {tweened} from 'svelte/motion';
+    import {Tween} from 'svelte/motion';
     import {cubicOut, expoInOut} from 'svelte/easing';
     import {getClientInfo} from "../../../integration/rest";
     import {onMount} from "svelte";
     import {fly} from "svelte/transition"
+    import {getBPS} from "../../../util/movement_utils";
+
+    export let settings: { [name: string]: any };
 
     let clientInfo: ClientInfo | null = null;
     let playerData: PlayerData | null = {
         position: {x: 0, y: 0, z: 0},
     } as PlayerData;
-    let lastX = 0;
-    let lastZ = 0;
 
-    const bps = tweened(0, {duration: 150, easing: cubicOut});
-    const xPos = tweened(0, {duration: 300, easing: cubicOut});
-    const yPos = tweened(0, {duration: 300, easing: cubicOut});
-    const zPos = tweened(0, {duration: 300, easing: cubicOut});
+    const xPos = new Tween(0, {duration: 300, easing: cubicOut});
+    const yPos = new Tween(0, {duration: 300, easing: cubicOut});
+    const zPos = new Tween(0, {duration: 300, easing: cubicOut});
 
     function roundToDecimal(value: number, decimal: number) {
         const rounded = Math.round(value * Math.pow(10, decimal)) / Math.pow(10, decimal);
@@ -29,37 +29,17 @@
         return value.toFixed(1);
     }
 
-    function getBPS(
-        lastX: number,
-        currentX: number,
-        lastZ: number,
-        currentZ: number,
-        tickrate: number
-    ): number {
-        const deltaX = currentX - lastX;
-        const deltaZ = currentZ - lastZ;
-        const distanceMoved = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
-        return distanceMoved * tickrate;
-    }
 
     async function updateClientInfo() {
         clientInfo = await getClientInfo();
     }
 
     listen("clientPlayerData", ((event: ClientPlayerDataEvent) => {
-        if (playerData) {
-            lastX = playerData.position.x;
-            lastZ = playerData.position.z;
-        }
         playerData = event.playerData;
         if (playerData) {
             xPos.set(playerData.position.x);
             yPos.set(playerData.position.y);
             zPos.set(playerData.position.z);
-            const calculatedBps = getBPS(lastX, playerData.position.x, lastZ, playerData.position.z, 20);
-            if (calculatedBps <= 200) {
-                bps.set(calculatedBps);
-            }
         }
     }));
 
@@ -72,6 +52,36 @@
     });
 
 </script>
+
+<div class="stats-container" transition:fly={{duration: 700, x: -50, easing: expoInOut}}>
+    {#if clientInfo && settings?.fps}
+        <div class="stat">
+            <span class="label">FPS:&nbsp;</span>
+            <span class="value">{clientInfo.fps}</span>
+        </div>
+    {/if}
+    {#if playerData}
+        {@const bpsValue = roundToDecimal(getBPS.current, 2).toString().padStart(6, " ")}
+
+        {#if settings?.bps}
+            <div class="stat">
+                <span class="label">BPS:&nbsp;</span>
+                <span class="value">{bpsValue}</span>
+            </div>
+        {/if}
+        {@const x = formatCoordinate(xPos.current)}
+        {@const y = formatCoordinate(yPos.current)}
+        {@const z = formatCoordinate(zPos.current)}
+
+        {#if settings?.xyz}
+            <div class="stat">
+                <span class="label">XYZ:&nbsp;</span>
+                <span class="value">{x}, {y}, {z}</span>
+            </div>
+        {/if}
+    {/if}
+</div>
+
 <style lang="scss">
   @use "../../../colors.scss" as *;
 
@@ -115,26 +125,3 @@
     }
   }
 </style>
-
-<div class="stats-container" transition:fly={{duration: 700, x: -50, easing: expoInOut}}>
-    {#if clientInfo}
-        <div class="stat">
-            <span class="label">FPS:&nbsp;</span>
-            <span class="value">{clientInfo.fps}</span>
-        </div>
-    {/if}
-    {#if playerData}
-        {@const bpsValue = roundToDecimal($bps, 2).toString().padStart(6, " ")}
-        <div class="stat">
-            <span class="label">BPS:&nbsp;</span>
-            <span class="value">{bpsValue}</span>
-        </div>
-        {@const x = formatCoordinate($xPos)}
-        {@const y = formatCoordinate($yPos)}
-        {@const z = formatCoordinate($zPos)}
-        <div class="stat">
-            <span class="label">XYZ:&nbsp;</span>
-            <span class="value">{x}, {y}, {z}</span>
-        </div>
-    {/if}
-</div>

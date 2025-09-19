@@ -91,7 +91,7 @@
              in:slide|global={{ duration: 200, axis: "y" }}
              out:slide|global={{ duration: 200, axis: "y" }}
         >
-            {#each cSetting.choices as choice}
+            {#each cSetting.choices as choice(choice)}
                 <div
                         class="choice"
                         class:active={cSetting.value.includes(choice)}
@@ -116,7 +116,7 @@
     border-radius: 8px;
 
     background: linear-gradient(
-                    135deg,
+                    135deg in oklch,
                     color-mix(in srgb, var(--primary-color) var(--bg-opacity-pct), transparent),
                     color-mix(in srgb, var(--secondary-color) var(--bg-opacity-pct), transparent)
     );
@@ -141,7 +141,7 @@
       border-radius: 10px;
 
       background: linear-gradient(
-                      135deg,
+                      135deg in oklch,
                       color-mix(in srgb, var(--primary-color) var(--border-opacity-pct), transparent),
                       color-mix(in srgb, var(--secondary-color) var(--border-opacity-pct), transparent)
       );

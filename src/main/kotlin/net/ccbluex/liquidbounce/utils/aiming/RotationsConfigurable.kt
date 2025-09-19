@@ -1,7 +1,6 @@
 package net.ccbluex.liquidbounce.utils.aiming
 
-import net.ccbluex.jmcomicfix.utils.aiming.features.processors.anglesmooth.impl.QuaternionAngleSmooth
-import net.ccbluex.liquidbounce.config.types.Configurable
+import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.features.MovementCorrection
@@ -24,14 +23,13 @@ open class RotationsConfigurable(
     private val angleSmooth = choices(owner, "AngleSmooth", 0) {
         val linearAngleSmooth = LinearAngleSmooth(it)
         val interpolationAngleSmooth = if (combatSpecific) InterpolationAngleSmooth(it) else null
-        val quaternionAngleSmooth = QuaternionAngleSmooth(it)
 
         listOfNotNull(
             linearAngleSmooth,
             InterpolationAngleSmooth(it),
             interpolationAngleSmooth,
             AccelerationAngleSmooth(it),
-            quaternionAngleSmooth,
+
             if (combatSpecific) MinaraiAngleSmooth(it, interpolationAngleSmooth ?: linearAngleSmooth) else null
         ).toTypedArray()
     }

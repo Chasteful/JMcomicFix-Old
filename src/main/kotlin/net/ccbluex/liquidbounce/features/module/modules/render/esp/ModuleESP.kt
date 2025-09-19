@@ -21,15 +21,10 @@ package net.ccbluex.liquidbounce.features.module.modules.render.esp
 import net.ccbluex.liquidbounce.features.misc.FriendManager
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.Esp2DMode
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspBoxMode
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspGlowMode
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspImageMode
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspOutlineMode
+import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.*
 import net.ccbluex.liquidbounce.render.GenericEntityHealthColorMode
 import net.ccbluex.liquidbounce.render.GenericRainbowColorMode
 import net.ccbluex.liquidbounce.render.GenericStaticColorMode
-import net.ccbluex.liquidbounce.render.GenericSyncColorMode
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.combat.EntityTaggingManager
 import net.ccbluex.liquidbounce.utils.combat.shouldBeShown
@@ -48,12 +43,13 @@ object ModuleESP : ClientModule("ESP", Category.RENDER) {
         get() = "liquidbounce.module.esp"
 
     val modes = choices(
-        "Mode", EspGlowMode, arrayOf(
+        "Mode", EspImageMode, arrayOf(
             EspBoxMode,
             EspOutlineMode,
             Esp2DMode,
             EspGlowMode,
-            EspImageMode
+            EspImageMode,
+            EspAvatarMode
         )
     )
 
@@ -62,17 +58,16 @@ object ModuleESP : ClientModule("ESP", Category.RENDER) {
             GenericEntityHealthColorMode(it),
             GenericStaticColorMode(it, Color4b.Companion.WHITE.with(a = 100)),
             GenericRainbowColorMode(it),
-
-            )
+        )
     }
 
     private val friendColor by color("Friends", Color4b.Companion.GREEN)
 
-    override fun enable() {
+    override fun onEnabled() {
         RenderedEntities.subscribe(this)
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         RenderedEntities.unsubscribe(this)
     }
 
@@ -80,7 +75,7 @@ object ModuleESP : ClientModule("ESP", Category.RENDER) {
         val baseColor = getBaseColor(entity)
 
         if (entity.hurtTime > 0) {
-            return Color4b.Companion.RED
+            return Color4b.RED
         }
 
         return baseColor

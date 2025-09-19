@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {shouldZoom} from "../LoginMenu/locked_store";
+    import {shouldZoom} from "../login/locked_store";
     import {currentLogo} from './header/logoStorage';
     import {fade} from "svelte/transition";
 
@@ -20,7 +20,7 @@
   .background {
     position: absolute;
     inset: 0;
-    background: url('/background.png') center / 100% 100%;
+    background: url('/backgrounds/background.png') center / 100% 100%;
     filter: blur(4px);
     transform: scale(1);
     transition: transform 0.5s ease, filter 0.5s ease;
@@ -35,7 +35,7 @@
   .vignette {
     position: absolute;
     inset: 0;
-    background: url('/Vignette.png') center / 100% 100%;
+    background: url('/img/Vignette.png') center / 100% 100%;
     z-index: -1;
     pointer-events: none;
   }

@@ -43,6 +43,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.net.InetSocketAddress;
 
@@ -56,6 +57,10 @@ public abstract class MixinConnectScreen extends MixinScreen {
     @Unique
     private ServerAddress serverAddress = null;
 
+    @Inject(method = "shouldCloseOnEsc", at = @At("HEAD"), cancellable = true)
+    private void onShouldCloseOnEsc(CallbackInfoReturnable<Boolean> cir) {
+        cir.setReturnValue(true);
+    }
     @Unique
     private static String getSocketAddress(ClientConnection clientConnection, ServerAddress serverAddress) {
         if (clientConnection.getAddress() instanceof InetSocketAddress addr) {
@@ -79,13 +84,15 @@ public abstract class MixinConnectScreen extends MixinScreen {
             cancellable = true
     )
     private void onRenderHead(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (!HideAppearance.INSTANCE.isHidingNow()) {
 
-        if (this.connection != null && this.serverAddress != null && !HideAppearance.INSTANCE.isHidingNow()) {
-            Text details = getConnectionDetails(this.connection, this.serverAddress);
-            EventManager.INSTANCE.callEvent(new ConnectionDetailsEvent(details));
+            if (this.connection != null && this.serverAddress != null && !HideAppearance.INSTANCE.isHidingNow()) {
+                Text details = getConnectionDetails(this.connection, this.serverAddress);
+                EventManager.INSTANCE.callEvent(new ConnectionDetailsEvent(details));
+            }
+
+            ci.cancel();
         }
-
-        ci.cancel();
     }
 
     @Redirect(

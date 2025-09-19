@@ -1,6 +1,6 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat.aimbot.autobow
 
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -9,7 +9,8 @@ import net.ccbluex.liquidbounce.render.renderEnvironmentForGUI
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
-import net.ccbluex.liquidbounce.utils.aiming.projectiles.SituationalProjectileAngleCalculator
+import net.ccbluex.liquidbounce.utils.aiming.projectiles.SituationalArrowAngleCalculator
+import net.ccbluex.liquidbounce.utils.block.isPathClearToEntity
 import net.ccbluex.liquidbounce.utils.combat.TargetPriority
 import net.ccbluex.liquidbounce.utils.combat.TargetTracker
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
@@ -22,19 +23,16 @@ import net.minecraft.item.TridentItem
  * Automatically shoots with your bow when you aim correctly at an enemy or when the bow is fully charged.
  */
 object AutoBowAimbotFeature : ToggleableConfigurable(ModuleAutoBow, "BowAimbot", true) {
-
-    // Target
+    private val rotationConfigurable = RotationsConfigurable(this)
+    private val throughWall by boolean("ThroughWall",true)
     val targetTracker = TargetTracker(TargetPriority.DISTANCE)
-
-    // Rotation
-    val rotationConfigurable = RotationsConfigurable(this)
 
     init {
         tree(targetTracker)
         tree(rotationConfigurable)
     }
 
-    private val targetRenderer = tree(OverlayTargetRenderer(ModuleAutoBow))
+    val targetRenderer = tree(OverlayTargetRenderer(ModuleAutoBow))
 
     @Suppress("unused")
     private val tickRepeatable = tickHandler {
@@ -54,7 +52,16 @@ object AutoBowAimbotFeature : ToggleableConfigurable(ModuleAutoBow, "BowAimbot",
 
         var rotation: Rotation? = null
         targetTracker.selectFirst { enemy ->
-            rotation = SituationalProjectileAngleCalculator.calculateAngleForEntity(projectileInfo, enemy)
+            val pathClear = isPathClearToEntity(
+                player.eyePos,
+                enemy,
+                3
+                )
+            if (!pathClear && !throughWall) {
+                return@selectFirst false
+            }
+
+            rotation = SituationalArrowAngleCalculator.calculateAngleForEntity(projectileInfo, enemy)
             rotation != null
         } ?: return@tickHandler
 

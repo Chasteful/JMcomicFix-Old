@@ -1,0 +1,23 @@
+{
+  "name": "Inventory",
+  "enabled": true,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "Left",
+    "horizontalOffset": 5,
+    "verticalAlignment": "CenterTranslated",
+    "verticalOffset": 80
+  },
+  "values": [
+    {
+      "type": "BOOLEAN",
+      "name": "Divider",
+      "value": true
+    },
+    {
+      "type": "BOOLEAN",
+      "name": "Gradient",
+      "value": false
+    }
+  ]
+}

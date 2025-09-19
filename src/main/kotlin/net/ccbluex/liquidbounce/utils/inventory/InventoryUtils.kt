@@ -22,23 +22,26 @@
 
 package net.ccbluex.liquidbounce.utils.inventory
 
-import net.ccbluex.liquidbounce.config.types.Configurable
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet
 import net.ccbluex.liquidbounce.config.types.NamedChoice
+import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
+import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.client.*
 import net.ccbluex.liquidbounce.utils.input.shouldSwingHand
-import net.ccbluex.liquidbounce.utils.item.isNothing
 import net.ccbluex.liquidbounce.utils.kotlin.emptyEnumSet
 import net.ccbluex.liquidbounce.utils.network.OpenInventorySilentlyPacket
 import net.ccbluex.liquidbounce.utils.network.sendPacket
+import net.minecraft.block.Block
 import net.minecraft.block.Blocks
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen
+import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.component.type.DyedColorComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket
 import net.minecraft.registry.Registries
 import net.minecraft.registry.tag.ItemTags
+import net.minecraft.util.ActionResult
 import net.minecraft.util.Hand
 import java.util.*
 
@@ -55,8 +58,7 @@ open class InventoryConstraints : Configurable("Constraints") {
     internal val closeDelay by intRange("CloseDelay", 1..2, 0..20, "ticks")
     internal val missChance by intRange("MissChance", 0..0, 0..100, "%")
 
-    internal val requirements by multiEnumChoice<InventoryRequirements>(
-        "Requires",
+    internal val requirements by multiEnumChoice<InventoryRequirements>("Requires",
         default = emptyEnumSet(),
         choices = EnumSet.of(
             InventoryRequirements.NO_MOVEMENT,
@@ -89,7 +91,7 @@ internal enum class InventoryRequirements(
     val testRequirement: (action: InventoryAction) -> Boolean
 ) : NamedChoice {
     NO_MOVEMENT("NoMovement", { _ ->
-        player.input.movementForward == 0.0f && player.input.movementSideways == 0.0f
+        player.input.movementForward == 0.0f && player.input.movementSideways == 0.0f && !player.jumping
     }),
 
     NO_ROTATION("NoRotation", { _ ->
@@ -148,45 +150,55 @@ fun closeInventorySilently() {
     network.sendPacket(CloseHandledScreenC2SPacket(0))
 }
 
-fun getSlotsInContainer(screen: GenericContainerScreen) =
-    screen.screenHandler.slots
-        .filter { it.inventory === screen.screenHandler.inventory }
+fun HandledScreen<*>.getSlotsInContainer() =
+    this.screenHandler.slots
+        .filter { it.inventory !== player.inventory }
         .map { ContainerItemSlot(it.id) }
 
-fun findItemsInContainer(screen: GenericContainerScreen) =
-    screen.screenHandler.slots
-        .filter { !it.stack.isNothing() && it.inventory === screen.screenHandler.inventory }
+fun HandledScreen<*>.findItemsInContainer() =
+    this.screenHandler.slots
+        .filter { !it.stack.isEmpty && it.inventory !== player.inventory }
         .map { ContainerItemSlot(it.id) }
 
+@JvmOverloads
 fun useHotbarSlotOrOffhand(
     item: HotbarItemSlot,
     ticksUntilReset: Int = 1,
     yaw: Float = RotationManager.currentRotation?.yaw ?: player.yaw,
     pitch: Float = RotationManager.currentRotation?.yaw ?: player.pitch,
-) = when (item) {
-    OffHandSlot -> interactItem(Hand.OFF_HAND, yaw, pitch)
+    swingMode: SwingMode = SwingMode.DO_NOT_HIDE,
+): ActionResult = when (item) {
+    OffHandSlot -> interactItem(Hand.OFF_HAND, yaw, pitch, swingMode)
     else -> {
         SilentHotbar.selectSlotSilently(null, item, ticksUntilReset)
-        interactItem(Hand.MAIN_HAND, yaw, pitch)
+        interactItem(Hand.MAIN_HAND, yaw, pitch, swingMode)
     }
 }
 
+@JvmOverloads
 fun interactItem(
     hand: Hand,
     yaw: Float = RotationManager.currentRotation?.yaw ?: player.yaw,
     pitch: Float = RotationManager.currentRotation?.yaw ?: player.pitch,
-) {
-    interaction.interactItem(player, hand, yaw, pitch).takeIf { it.isAccepted }?.let {
-        if (it.shouldSwingHand()) {
-            player.swingHand(hand)
+    swingMode: SwingMode = SwingMode.DO_NOT_HIDE,
+): ActionResult {
+    val result = interaction.interactItem(player, hand, yaw, pitch)
+
+    if (result.isAccepted) {
+        if (result.shouldSwingHand()) {
+            swingMode.accept(hand)
         }
 
         mc.gameRenderer.firstPersonRenderer.resetEquipProgress(hand)
     }
+
+    return result
 }
 
-fun findBlocksEndingWith(vararg targets: String) =
-    Registries.BLOCK.filter { block -> targets.any { Registries.BLOCK.getId(block).path.endsWith(it.lowercase()) } }
+internal fun findBlocksEndingWith(vararg targets: String): MutableSet<Block> =
+    Registries.BLOCK.filterTo(ReferenceOpenHashSet()) { block ->
+        targets.any { Registries.BLOCK.getId(block).path.endsWith(it.lowercase()) }
+    }
 
 /**
  * Get the color of the armor on the player

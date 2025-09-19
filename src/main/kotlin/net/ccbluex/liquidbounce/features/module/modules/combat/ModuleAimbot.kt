@@ -1,21 +1,3 @@
-/*
- * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
- *
- * Copyright (c) 2015 - 2025 CCBlueX
- *
- * LiquidBounce is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * LiquidBounce is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
- */
 package net.ccbluex.liquidbounce.features.module.modules.combat
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
@@ -33,7 +15,6 @@ import net.ccbluex.liquidbounce.utils.aiming.data.RotationWithVector
 import net.ccbluex.liquidbounce.utils.aiming.features.MovementCorrection
 import net.ccbluex.liquidbounce.utils.aiming.features.processors.anglesmooth.impl.InterpolationAngleSmooth
 import net.ccbluex.liquidbounce.utils.aiming.features.processors.anglesmooth.impl.LinearAngleSmooth
-import net.ccbluex.liquidbounce.utils.aiming.features.processors.anglesmooth.impl.SigmoidAngleSmooth
 import net.ccbluex.liquidbounce.utils.aiming.point.PointTracker
 import net.ccbluex.liquidbounce.utils.aiming.preference.LeastDifferencePreference
 import net.ccbluex.liquidbounce.utils.aiming.utils.raytraceBox
@@ -55,60 +36,73 @@ import net.minecraft.util.math.MathHelper
  */
 @Suppress("MagicNumber")
 object ModuleAimbot : ClientModule("Aimbot", Category.COMBAT, aliases = arrayOf("AimAssist", "AutoAim")) {
-
-    private val range = float("Range", 4.2f, 1f..8f)
-    private val onRotate by boolean("OnlyRotate",true)
-    val targetTracker = tree(TargetTracker(TargetPriority.DIRECTION, range = range))
-    private val targetRenderer = tree(WorldTargetRenderer(this))
-    private val pointTracker = tree(PointTracker())
-
-    private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
-
-    private val requirementsMet
-        get() = requires.all { it.meets() }
-
     private var angleSmooth = choices(this, "AngleSmooth") {
         arrayOf(
             InterpolationAngleSmooth(it),
-            LinearAngleSmooth(it)
+            LinearAngleSmooth(it),
         )
     }
+    private val range = float("Range", 4.2f, 1f..8f)
+    private val targetRenderer = tree(WorldTargetRenderer(this))
+    private val aimThroughWalls by boolean("ThroughWalls", false)
+
+    val targetTracker = tree(TargetTracker(TargetPriority.DIRECTION, range = range))
+
+    private val pointTracker = tree(PointTracker(this))
+    private val requires by multiEnumChoice<KillAuraRequirements>(
+        "Requires",
+        KillAuraRequirements.ONLY_ON_ROTATE,
+        KillAuraRequirements.CLICK
+    )
+
+    private val requirementsMet
+        get() = requires.all { it.asBoolean }
 
     private val ignores by multiEnumChoice<IgnoreOpened>("Ignore")
 
+    private var lastTargetEntity: Entity? = null
     private var targetRotation: Rotation? = null
     private var playerRotation: Rotation? = null
-    private var mouseDeltaX = 0f
-    private var mouseDeltaY = 0f
+    var mouseDeltaX = 0f
+    var mouseDeltaY = 0f
+
     @Suppress("unused", "ComplexCondition")
     private val tickHandler = handler<RotationUpdateEvent> { _ ->
         playerRotation = player.rotation
 
         if (!requirementsMet) {
             targetTracker.reset()
+            targetRenderer.reset()
             targetRotation = null
+
+            if (!KillAuraRequirements.CLICK.asBoolean) {
+                lastTargetEntity = null
+            }
             return@handler
         }
+        targetRotation = findNextTargetRotation()?.let { (target, rotation) ->
+            lastTargetEntity = target
+            angleSmooth.activeChoice.process(
+                RotationTarget(
+                    rotation = rotation.rotation,
+                    entity = target,
+                    processors = listOf(angleSmooth.activeChoice),
+                    ticksUntilReset = 1,
+                    resetThreshold = 1f,
+                    considerInventory = true,
+                    movementCorrection = MovementCorrection.CHANGE_LOOK
+                ),
+                player.rotation,
+                rotation.rotation
+            )
+        }
 
-        // Only find target rotation if not in OnlyRotate mode or if mouse is moving
-        if (!onRotate || (mouseDeltaX != 0f || mouseDeltaY != 0f)) {
-            targetRotation = findNextTargetRotation()?.let { (target, rotation) ->
-                angleSmooth.activeChoice.process(
-                    RotationTarget(
-                        rotation = rotation.rotation,
-                        entity = target,
-                        processors = listOf(angleSmooth.activeChoice),
-                        ticksUntilReset = 1,
-                        resetThreshold = 1f,
-                        considerInventory = true,
-                        movementCorrection = MovementCorrection.CHANGE_LOOK
-                    ),
-                    player.rotation,
-                    rotation.rotation
-                )
+        // Reset renderer if no target is found
+        if (targetRotation == null) {
+            if (KillAuraRequirements.ONLY_ON_ROTATE in requires && (mouseDeltaX != 0f || mouseDeltaY != 0f)) {
+                lastTargetEntity = null
             }
-        } else {
-            targetRotation = null
+            targetRenderer.reset()
         }
 
         // Reset mouse delta after checking
@@ -116,25 +110,26 @@ object ModuleAimbot : ClientModule("Aimbot", Category.COMBAT, aliases = arrayOf(
         mouseDeltaY = 0f
 
         // Update Auto Weapon
-        ModuleAutoWeapon.prepare(targetTracker.target)
+        ModuleAutoWeapon.onTarget(targetTracker.target)
     }
-    override fun disable() {
+
+    override fun onDisabled() {
         targetTracker.reset()
+        targetRenderer.reset() // Ensure renderer is reset when module is disabled
     }
 
     @Suppress("unused")
     private val renderHandler = handler<WorldRenderEvent> { event ->
         val matrixStack = event.matrixStack
         val partialTicks = event.partialTicks
-        val target = targetTracker.target ?: return@handler
+        val target = targetTracker.target ?: lastTargetEntity ?: return@handler
 
         if (IgnoreOpened.SCREEN !in ignores && mc.currentScreen != null) {
             return@handler
         }
 
         if (IgnoreOpened.CONTAINER !in ignores && (InventoryManager.isInventoryOpen ||
-                mc.currentScreen is HandledScreen<*>)
-        ) {
+                mc.currentScreen is HandledScreen<*>)) {
             return@handler
         }
 
@@ -155,9 +150,10 @@ object ModuleAimbot : ClientModule("Aimbot", Category.COMBAT, aliases = arrayOf(
         }
     }
 
+
     @Suppress("unused", "MagicNumber")
     private val mouseMovement = handler<MouseRotationEvent> { event ->
-        // Track mouse movement delta for OnlyRotate
+        // Track mouse movement delta
         mouseDeltaX = event.cursorDeltaX.toFloat()
         mouseDeltaY = event.cursorDeltaY.toFloat()
 
@@ -179,18 +175,20 @@ object ModuleAimbot : ClientModule("Aimbot", Category.COMBAT, aliases = arrayOf(
 
     private fun findNextTargetRotation(): Pair<Entity, RotationWithVector>? {
         for (target in targetTracker.targets()) {
-            val pointOnHitbox = pointTracker.gatherPoint(target, PointTracker.AimSituation.FOR_NOW)
-            val rotationPreference = LeastDifferencePreference(player.rotation, pointOnHitbox.toPoint)
-
+            val eyes = player.eyePos
+            val pointOnHitbox = pointTracker.findPoint(eyes, target, 0)
+            val rotationPreference = LeastDifferencePreference(player.rotation, pointOnHitbox.pos)
+            val range = targetTracker.maxRange.toDouble()
+            val wallRange = if (aimThroughWalls){
+                range
+            }else{
+                0.0
+            }
             val spot = raytraceBox(
-                pointOnHitbox.fromPoint,
-                pointOnHitbox.cutOffBox,
-                range = targetTracker.maxRange.toDouble(),
-                wallsRange = 0.0,
-                rotationPreference = rotationPreference
-            ) ?: raytraceBox(
-                pointOnHitbox.fromPoint, pointOnHitbox.box, range = targetTracker.maxRange.toDouble(),
-                wallsRange = 0.0,
+                eyes,
+                pointOnHitbox.box,
+                range = range,
+                wallsRange = wallRange,
                 rotationPreference = rotationPreference
             ) ?: continue
 

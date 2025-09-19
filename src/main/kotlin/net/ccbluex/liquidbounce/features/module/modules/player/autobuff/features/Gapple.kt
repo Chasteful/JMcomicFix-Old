@@ -25,35 +25,27 @@ import net.ccbluex.liquidbounce.event.Sequence
 import net.ccbluex.liquidbounce.event.events.KeybindIsPressedEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.HealthBasedBuff
-import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.startEating
-import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.stopEating
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
 
-object Gapple : HealthBasedBuff("Gapple") {
+internal object Gapple : HealthBasedBuff("Gapple") {
 
     private var forceUseKey = false
 
     override fun isValidItem(stack: ItemStack, forUse: Boolean): Boolean {
-        return stack.item == Items.GOLDEN_APPLE
+        return stack.isOf(Items.GOLDEN_APPLE)
     }
 
-    override suspend fun execute(sequence: Sequence, slot: HotbarItemSlot) {
+    override suspend fun Sequence.execute(slot: HotbarItemSlot) {
         forceUseKey = true
-        startEating(this, 32)
-
-        try {
-            sequence.waitUntil { !passesRequirements }
-        } finally {
-            forceUseKey = false
-            stopEating(this)
-        }
+        waitUntil { !passesRequirements }
+        forceUseKey = false
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         forceUseKey = false
-        super.disable()
+        super.onDisabled()
     }
 
     @Suppress("unused")

@@ -18,8 +18,8 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import com.mojang.blaze3d.systems.RenderSystem
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.additions.screenInitialized
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.*
 import net.ccbluex.liquidbounce.event.handler
@@ -32,9 +32,9 @@ import net.ccbluex.liquidbounce.integration.VirtualScreenType
 import net.ccbluex.liquidbounce.integration.backend.browser.Browser
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
+import net.ccbluex.liquidbounce.additions.setPosition
 import net.ccbluex.liquidbounce.utils.client.asText
 import net.ccbluex.liquidbounce.utils.client.inGame
-import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.OBJECTION_AGAINST_EVERYTHING
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.READ_FINAL_STATE
 import net.minecraft.client.gui.screen.Screen
@@ -49,7 +49,7 @@ import org.lwjgl.glfw.GLFW
 object ModuleClickGui :
     ClientModule("ClickGUI", Category.RENDER, bind = GLFW.GLFW_KEY_RIGHT_SHIFT, disableActivation = true) {
 
-    override val running = true
+    override val running get() = true
 
     @Suppress("UnusedPrivateProperty")
     private val scale by float("Scale", 1f, 0.5f..2f).onChanged {
@@ -68,7 +68,9 @@ object ModuleClickGui :
 
     @Suppress("UnusedPrivateProperty")
     private val cache by boolean("Cache", true).onChanged { cache ->
-        RenderSystem.recordRenderCall {
+        mc.execute {
+            mouseX = Double.NaN
+            mouseY = Double.NaN
             if (cache) {
                 open()
             } else {
@@ -76,16 +78,25 @@ object ModuleClickGui :
             }
 
             if (mc.currentScreen is VirtualDisplayScreen || mc.currentScreen is ClickScreen) {
-                enable()
+                onEnabled()
             }
         }
     }
+
+    private val trackMousePosition by boolean("TrackMousePosition", false)
 
     @Suppress("UnusedPrivateProperty")
     private val searchBarAutoFocus by boolean("SearchBarAutoFocus", true).onChanged {
         EventManager.callEvent(ClickGuiValueChangeEvent(this))
     }
-
+    @Suppress("UnusedPrivateProperty")
+    private val moduleAutoCollapse by boolean("ModuleAutoCollapse", true).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
+    @Suppress("UnusedPrivateProperty")
+    private val moduleDescription by boolean("Description", true).onChanged {
+        EventManager.callEvent(ClickGuiValueChangeEvent(this))
+    }
     val isInSearchBar: Boolean
         get() = (mc.currentScreen is VirtualDisplayScreen || mc.currentScreen is ClickScreen) && isTyping
 
@@ -110,7 +121,7 @@ object ModuleClickGui :
         tree(Snapping)
     }
 
-    override fun enable() {
+    override fun onEnabled() {
         // Pretty sure we are not in a game, so we can't open the clickgui
         if (!inGame) {
             return
@@ -123,8 +134,10 @@ object ModuleClickGui :
                 ClickScreen()
             }
         )
-        super.enable()
+        super.onEnabled()
     }
+
+
 
     private fun open() {
         if (clickGuiBrowser != null) {
@@ -145,8 +158,10 @@ object ModuleClickGui :
      * Closes the ClickGUI view
      */
     private fun close() {
-        clickGuiBrowser?.close()
-        clickGuiBrowser = null
+        clickGuiBrowser?.let {
+            it.close()
+            clickGuiBrowser = null
+        }
     }
 
     /**
@@ -169,7 +184,7 @@ object ModuleClickGui :
         }
     @Suppress("unused")
     private val browserReadyHandler = handler<BrowserReadyEvent>(priority = READ_FINAL_STATE) {
-        tree(IntegrationListener.browserSettings!!)
+        tree(IntegrationListener.browserSettings)
         open()
     }
 
@@ -194,12 +209,24 @@ object ModuleClickGui :
         }
     }
 
+    private var mouseX = Double.NaN
+    private var mouseY = Double.NaN
+
     /**
      * An empty screen that acts as hint when to draw the clickgui
      */
     class ClickScreen : Screen("ClickGUI".asText()) {
 
+        override fun init() {
+            if (trackMousePosition && !screenInitialized && !mouseX.isNaN() && !mouseY.isNaN()) {
+                mc.mouse.setPosition(mouseX, mouseY)
+            }
+            super.init()
+        }
+
         override fun close() {
+            mouseX = mc.mouse.x
+            mouseY = mc.mouse.y
             mc.mouse.lockCursor()
             super.close()
         }

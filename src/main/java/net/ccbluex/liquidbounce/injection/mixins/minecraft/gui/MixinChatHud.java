@@ -22,8 +22,9 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.ccbluex.liquidbounce.event.EventManager;
 import net.ccbluex.liquidbounce.event.events.OverlayChatEvent;
 import net.ccbluex.liquidbounce.features.module.modules.misc.betterchat.ModuleBetterChat;
-import net.ccbluex.liquidbounce.integration.theme.component.ComponentOverlay;
-import net.ccbluex.liquidbounce.integration.theme.component.FeatureTweak;
+import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.ModuleNameProtect;
+import net.ccbluex.liquidbounce.integration.theme.component.ComponentManager;
+import net.ccbluex.liquidbounce.integration.theme.component.ComponentTweak;
 import net.ccbluex.liquidbounce.interfaces.ChatHudAddition;
 import net.ccbluex.liquidbounce.interfaces.ChatMessageAddition;
 import net.minecraft.client.MinecraftClient;
@@ -39,6 +40,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArgs;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 import java.util.List;
@@ -105,8 +107,15 @@ public abstract class MixinChatHud implements ChatHudAddition {
 
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void hookRenderChat(DrawContext context, int currentTick, int mouseX, int mouseY, boolean focused, CallbackInfo ci) {
-        if (ComponentOverlay.isTweakEnabled(FeatureTweak.DISABLE_CHAT_HUD)) {
+        if (ComponentManager.isTweakEnabled(ComponentTweak.DISABLE_CHAT_HUD)) {
             ci.cancel();
+        }
+    }
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+    private void hookMouseClicked(double mouseX, double mouseY, CallbackInfoReturnable<Boolean> cir) {
+        if (ComponentManager.isTweakEnabled(ComponentTweak.DISABLE_CHAT_HUD)) {
+            cir.setReturnValue(false);
+            cir.cancel();
         }
     }
 
@@ -136,15 +145,15 @@ public abstract class MixinChatHud implements ChatHudAddition {
 
         var betterChat = ModuleBetterChat.INSTANCE;
 
-
         MutableText formattedText = Text.empty();
         for (OrderedText t : list) {
+            MutableText finalFormattedText = formattedText;
             t.accept((index, style, codePoint) -> {
-                formattedText.append(Text.literal(String.valueOf((char) codePoint)).setStyle(style));
+                finalFormattedText.append(Text.literal(String.valueOf((char) codePoint)).setStyle(style));
                 return true;
             });
         }
-
+        formattedText = (MutableText) ModuleNameProtect.INSTANCE.replace(formattedText);
 
         if (message != null) {
             EventManager.INSTANCE.callEvent(new OverlayChatEvent(

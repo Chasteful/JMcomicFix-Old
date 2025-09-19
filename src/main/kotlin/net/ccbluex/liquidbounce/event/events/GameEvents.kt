@@ -20,7 +20,6 @@
 
 package net.ccbluex.liquidbounce.event.events
 
-import com.sun.jna.platform.unix.LibCAPI
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.event.CancellableEvent
 import net.ccbluex.liquidbounce.event.Event
@@ -40,7 +39,6 @@ import net.minecraft.client.util.InputUtil
 import net.minecraft.item.ItemStack
 import net.minecraft.text.Text
 
-
 @Nameable("gameTick")
 object GameTickEvent : Event()
 
@@ -55,18 +53,14 @@ object GameRenderTaskQueueEvent : Event()
 @Nameable("tickPacketProcess")
 object TickPacketProcessEvent : Event()
 
-@Nameable("sneakNetwork")
-class SneakNetworkEvent(
-    val directionalInput: DirectionalInput,
-    var sneak: Boolean,
-) : Event()
-
 @Nameable("key")
-@WebSocketEvent
 class KeyEvent(
     val key: InputUtil.Key,
     val action: Int,
-) : Event()
+) : Event(), WebSocketEvent
+
+@Nameable("keyBindingCPS")
+class KeyBindingCPSEvent(val key: InputUtil.Key, val cps: Int) : Event(), WebSocketEvent
 
 // Input events
 @Nameable("inputHandle")
@@ -92,6 +86,12 @@ class SprintEvent(
     }
 }
 
+@Nameable("sneakNetwork")
+class SneakNetworkEvent(
+    val directionalInput: DirectionalInput,
+    var sneak: Boolean,
+) : Event()
+
 @Nameable("mouseRotation")
 class MouseRotationEvent(
     var cursorDeltaX: Double,
@@ -99,8 +99,7 @@ class MouseRotationEvent(
 ) : CancellableEvent()
 
 @Nameable("keybindChange")
-@WebSocketEvent
-object KeybindChangeEvent : Event()
+object KeybindChangeEvent : Event(), WebSocketEvent
 
 @Nameable("keybindIsPressed")
 class KeybindIsPressedEvent(
@@ -126,10 +125,9 @@ class MinecraftAutoJumpEvent(
  */
 
 @Nameable("session")
-@WebSocketEvent
 class SessionEvent(
     val session: Session,
-) : Event()
+) : Event(), WebSocketEvent
 
 @Nameable("screen")
 class ScreenEvent(
@@ -142,26 +140,23 @@ class VirtualTypeEvent(
 ) : CancellableEvent()
 
 @Nameable("chatSend")
-@WebSocketEvent
 class ChatSendEvent(
     val message: String,
-) : CancellableEvent()
+) : CancellableEvent(), WebSocketEvent
 
 @Nameable("chatReceive")
-@WebSocketEvent
 class ChatReceiveEvent(
     val message: String,
     val textData: Text,
     val type: ChatType,
     val applyChatDecoration: (Text) -> Text,
-) : CancellableEvent() {
+) : CancellableEvent(), WebSocketEvent {
     enum class ChatType(override val choiceName: String) : NamedChoice {
         CHAT_MESSAGE("ChatMessage"),
         DISGUISED_CHAT_MESSAGE("DisguisedChatMessage"),
         GAME_MESSAGE("GameMessage"),
     }
 }
-
 
 @Nameable("serverConnect")
 class ServerConnectEvent(
@@ -172,18 +167,15 @@ class ServerConnectEvent(
 ) : CancellableEvent()
 
 @Nameable("disconnect")
-@WebSocketEvent
-object DisconnectEvent : Event()
+object DisconnectEvent : Event(), WebSocketEvent
 
 @Nameable("overlayMessage")
-@WebSocketEvent
 class OverlayMessageEvent(
     val text: Text,
-    val tinted: Boolean
-) : Event()
+    val tinted: Boolean,
+) : Event(), WebSocketEvent
 
 @Nameable("perspective")
-
 class PerspectiveEvent(
     var perspective: Perspective,
 ) : Event()
@@ -195,11 +187,10 @@ class ItemLoreQueryEvent(
 ) : Event()
 
 @Nameable("overlayTitle")
-@WebSocketEvent
 class OverlayTitleEvent(
     var title: Text,
     var subtitle: Text
-) : Event() {
+) : Event(),WebSocketEvent {
     var isCancelled = false
 
     fun cancel() {
@@ -210,39 +201,41 @@ class OverlayTitleEvent(
 }
 
 @Nameable("overlayDisconnection")
-@WebSocketEvent
 class OverlayDisconnectionEvent(
     var parent: Screen,
     var info: Text
-) : Event()
+) : Event(),WebSocketEvent
 
 @Nameable("connectionDetails")
-@WebSocketEvent
 class ConnectionDetailsEvent(
     val result: Text,
-) : Event()
+) : Event(),WebSocketEvent
 
 @Nameable("overlayPlayList")
-@WebSocketEvent
 class OverlayPlayListEvent(
     var header: Text,
     var footer: Text,
     var players: List<PlayerEntry>
-) : Event()
+) : Event(),WebSocketEvent
 
 data class PlayerEntry(
     val name: Text,
     val uuid: String,
     val latency: Text,
     val isFriend: Boolean,
-    val isStaff: Boolean
+    val isStaff: Boolean,
+    val isSelf:Boolean,
 )
 
 @Nameable("overlayChatMessage")
-@WebSocketEvent
-
 class OverlayChatEvent(
     val content: Text,
     val timestamp: Long,
     val isSystem: Boolean
+) : Event(),WebSocketEvent
+
+@Nameable("heypixelSWKill")
+class HeypixelSWKillEvent(
+    val victim: String,
+    val killer: String
 ) : Event()

@@ -1,0 +1,19 @@
+{
+  "name": "Scoreboard",
+  "enabled": true,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "Right",
+    "horizontalOffset": 15,
+    "verticalAlignment": "Center",
+    "verticalOffset": 0
+  },
+  "values": [
+    {
+      "type": "BOOLEAN",
+      "name": "Numbers",
+      "value": false
+    }
+  ],
+  "tweaks": ["DISABLE_SCOREBOARD"]
+}

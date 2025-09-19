@@ -20,7 +20,7 @@ package net.ccbluex.liquidbounce.features.module.modules.world.scaffold
 
 import it.unimi.dsi.fastutil.ints.IntObjectPair
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.BlockCountChangeEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
@@ -30,6 +30,7 @@ import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.movement.ModuleSafeWalk
+import net.ccbluex.liquidbounce.features.module.modules.player.ModuleScaffoldHelper
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.modes.NoFallBlink
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
@@ -55,6 +56,7 @@ import net.ccbluex.liquidbounce.utils.block.targetfinding.BlockPlacementTarget
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.client.Timer
+import net.ccbluex.liquidbounce.utils.entity.isInVoid
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.item.*
@@ -140,7 +142,12 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
             } else {
                 blockPos.copy(y = startY - 1)
             }
-        })
+        }),
+
+        PRESS("Press", { blockPos ->
+            if (mc.options.jumpKey.isPressed) { null }
+            else { blockPos.copy(y = placementY) }
+        }),
 
     }
 
@@ -167,6 +174,7 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
             false
         }
     private var wasTowering: Boolean = false
+    private var nullTargetTicks = 0
 
     // SafeWalk feature - uses the SafeWalk module as a base
     @Suppress("unused")
@@ -198,13 +206,13 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
 
     }
 
-    private var currentTarget: BlockPlacementTarget? = null
+    var currentTarget: BlockPlacementTarget? = null
 
     private var swingMode by enumChoice("Swing", SwingMode.DO_NOT_HIDE)
 
     object SimulatePlacementAttempts : ToggleableConfigurable(this, "SimulatePlacementAttempts", false) {
 
-        internal val clicker = tree(Clicker(ModuleScaffold, mc.options.useKey, false, maxCps = 100))
+        internal val clicker = tree(Clicker(ModuleScaffold, mc.options.useKey, null, maxCps = 100))
         val failedAttemptsOnly by boolean("FailedAttemptsOnly", true)
     }
 
@@ -218,6 +226,12 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
         tree(ScaffoldSpeedLimiterFeature)
         tree(ScaffoldBlinkFeature)
     }
+
+    /**
+     * Temporarily turns on [net.ccbluex.liquidbounce.features.module.modules.movement.speed.ModuleSpeed]
+     * while Scaffold is enabled.
+     */
+    val autoSpeed by boolean("AutoSpeed", false)
 
     private var ledge by boolean("Ledge", true)
 
@@ -264,7 +278,7 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
             PreferFullCubeBlocks,
             PreferWalkableBlocks,
             PreferAverageHardBlocks(neutralRange = true),
-            PreferStackSize(higher = false),
+            PreferStackSize.LESS,
             PreferAverageHardBlocks(neutralRange = false),
         )
     val BLOCK_COMPARATOR_FOR_INVENTORY =
@@ -274,11 +288,11 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
             PreferFullCubeBlocks,
             PreferWalkableBlocks,
             PreferAverageHardBlocks(neutralRange = true),
-            PreferStackSize(higher = true),
+            PreferStackSize.MORE,
             PreferAverageHardBlocks(neutralRange = false),
         )
 
-    override fun enable() {
+    override fun onEnabled() {
         // Placement Y is the Y coordinate of the block below the player
         placementY = player.blockPos.y - 1
         startY = player.blockPos.y
@@ -287,10 +301,10 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
         ScaffoldMovementPlanner.reset()
         ScaffoldMovementPrediction.reset()
 
-        super.enable()
+        super.onEnabled()
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         NoFallBlink.waitUntilGround = false
         ScaffoldMovementPlanner.reset()
         SilentHotbar.resetSlot(this)
@@ -299,7 +313,7 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
         renderer.clearSilently()
     }
 
-    private fun updateRenderCount(count: Int? = null) = EventManager.callEvent(BlockCountChangeEvent(count))
+    fun updateRenderCount(count: Int? = null) = EventManager.callEvent(BlockCountChangeEvent(count))
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
@@ -337,7 +351,19 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
         }
 
         val target = technique.findPlacementTarget(predictedPos, predictedPose, optimalLine, bestStack)
-            .also { this.currentTarget = it }
+
+        if (target == null) {
+            nullTargetTicks++
+            if (nullTargetTicks > 20 && isInVoid(player.pos)) {
+                this.currentTarget = null
+                return@handler
+            }
+        } else {
+            nullTargetTicks = 0
+        }
+
+        this.currentTarget = target
+
 
         // Debug stuff
         if (optimalLine != null && target != null) {
@@ -471,6 +497,13 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
         val currentCrosshairTarget = technique.activeChoice.getCrosshairTarget(target, currentRotation)
         val currentDelay = delay.random()
 
+        if (target != null && (currentCrosshairTarget == null ||
+                !target.doesCrosshairTargetFullFillRequirements(currentCrosshairTarget) ||
+                !isValidCrosshairTarget(currentCrosshairTarget))) {
+            currentTarget = null
+            return@tickHandler
+        }
+
         var hasBlockInMainHand = isValidBlock(player.inventory.getStack(player.inventory.selectedSlot))
         val hasBlockInOffHand = isValidBlock(player.offHandStack)
 
@@ -564,6 +597,7 @@ object ModuleScaffold : ClientModule("Scaffold", Category.WORLD) {
             ScaffoldEagleFeature.onBlockPlacement()
             ScaffoldBlinkFeature.onBlockPlacement()
             ScaffoldSprintControlFeature.onBlockPlacement()
+            ModuleScaffoldHelper.notifyBlockPlaced()
 
             waitTicks(currentDelay)
         }

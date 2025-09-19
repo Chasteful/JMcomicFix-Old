@@ -6,7 +6,6 @@
     import {cleanupListeners, listenAlways} from "./integration/ws";
     import {onMount} from "svelte";
     import {insertPersistentData} from "./integration/persistent_storage";
-    import Pendant from "./routes/pendant/Pendant.svelte";
     import Title from "./routes/menu/title/Title.svelte";
     import Multiplayer from "./routes/menu/multiplayer/Multiplayer.svelte";
     import AltManager from "./routes/menu/altmanager/AltManager.svelte";
@@ -14,9 +13,13 @@
     import ProxyManager from "./routes/menu/proxymanager/ProxyManager.svelte";
     import Disconnected from "./routes/menu/disconnected/Disconnected.svelte";
     import Browser from "./routes/browser/Browser.svelte";
-    import LoginMenu from "./routes/menu/LoginMenu/LoginMenu.svelte";
-    import LockScreen from "./routes/menu/LoginMenu/LockScreen.svelte";
+    import LoginMenu from "./routes/menu/login/LoginMenu.svelte";
+    import LockScreen from "./routes/menu/login/LockScreen.svelte";
     import ConnectionScreen from "./routes/menu/connected/ConnectionScreen.svelte";
+    import SpareModule from "./routes/menu/common/SpareModule.svelte";
+    import Inventory from "./routes/menu/inventory/Inventory.svelte";
+    import ConfigManager from "./routes/clickgui/ConfigManager.svelte";
+    import None from "./routes/menu/none/None.svelte";
 
     const routes = {
         "/loginmenu": LoginMenu,
@@ -24,8 +27,9 @@
         "/clickgui": ClickGui,
         "/hud": Hud,
         "/layouteditor": Hud,
-        "/inventory": Pendant,
-        "/chat": Pendant,
+        "/inventory": Inventory,
+        "/game_menu": ConfigManager,
+        "/chest": SpareModule,
         "/title": Title,
         "/multiplayer": Multiplayer,
         "/altmanager": AltManager,
@@ -34,8 +38,7 @@
         "/disconnected": Disconnected,
         "/connecting": ConnectionScreen,
         "/browser": Browser,
-
-
+        "/none": None,
     };
 
     const url = window.location.href;

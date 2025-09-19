@@ -18,12 +18,15 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.world
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.BlockBreakingProgressEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.utils.block.bed.BedBlockTracker
+import net.ccbluex.liquidbounce.utils.block.getCenterDistanceSquaredEyes
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
@@ -31,7 +34,7 @@ import net.ccbluex.liquidbounce.utils.collection.Filter
 import net.ccbluex.liquidbounce.utils.inventory.ItemSlot
 import net.ccbluex.liquidbounce.utils.inventory.SlotGroup
 import net.ccbluex.liquidbounce.utils.inventory.Slots
-import net.ccbluex.liquidbounce.utils.item.isNothing
+import net.ccbluex.liquidbounce.utils.math.sq
 import net.minecraft.block.BlockState
 import net.minecraft.util.math.BlockPos
 
@@ -85,13 +88,37 @@ object ModuleAutoTool : ClientModule("AutoTool", Category.WORLD) {
 
     private val requireSneaking by boolean("RequireSneaking", false)
 
+    private object RequireNearBed : ToggleableConfigurable(
+        this, "RequireNearBed", enabled = false
+    ), BedBlockTracker.Subscriber {
+        override val maxLayers: Int get() = 1
+
+        override fun onEnabled() {
+            BedBlockTracker.subscribe(this)
+        }
+
+        override fun onDisabled() {
+            BedBlockTracker.unsubscribe(this)
+        }
+
+        private val distance by float("Distance", 10.0f, 3.0f..50.0f)
+
+        fun matches(): Boolean {
+            return BedBlockTracker.allPositions().any { it.getCenterDistanceSquaredEyes() <= distance.sq() }
+        }
+    }
+
+    init {
+        tree(RequireNearBed)
+    }
+
     @Suppress("unused")
     private val handleBlockBreakingProgress = handler<BlockBreakingProgressEvent> { event ->
         switchToBreakBlock(event.pos)
     }
 
     fun switchToBreakBlock(pos: BlockPos) {
-        if (requireSneaking && !player.isSneaking) {
+        if (requireSneaking && !player.isSneaking || RequireNearBed.enabled && !RequireNearBed.matches()) {
             return
         }
 
@@ -109,7 +136,7 @@ object ModuleAutoTool : ClientModule("AutoTool", Category.WORLD) {
         val slot = filter {
             val stack = it.itemStack
             val durabilityCheck = (ignoreDurability || stack.damage < (stack.maxDamage - 2))
-            stack.isNothing() || (!player.isCreative && durabilityCheck)
+            stack.isEmpty || (!player.isCreative && durabilityCheck)
         }.maxByOrNull {
             it.itemStack.getMiningSpeedMultiplier(blockState)
         } ?: return null

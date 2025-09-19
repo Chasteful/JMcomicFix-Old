@@ -18,8 +18,11 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect
 
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
+import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
+import net.ccbluex.liquidbounce.event.events.NameProtectEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.misc.FriendManager
 import net.ccbluex.liquidbounce.features.module.Category
@@ -32,11 +35,15 @@ import net.ccbluex.liquidbounce.render.engine.font.processor.LegacyTextSanitizer
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.bypassesNameProtection
 import net.ccbluex.liquidbounce.utils.client.toText
-import net.ccbluex.liquidbounce.utils.kotlin.mapString
-import net.minecraft.text.CharacterVisitor
+import net.minecraft.client.MinecraftClient
+import net.ccbluex.liquidbounce.utils.collection.LfuCache
 import net.minecraft.text.OrderedText
 import net.minecraft.text.Style
 import net.minecraft.text.Text
+import kotlin.random.Random
+
+private const val DEFAULT_CACHE_SIZE = 256
+private const val DEFAULT_BUFFER_SIZE = 64
 
 /**
  * NameProtect module
@@ -60,7 +67,14 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
 
     }
 
+    val applyGarbled by boolean("Garbled", false).onChanged {
+        EventManager.callEvent(NameProtectEvent(ModuleNameProtect))
+    }
+    private val originalColor by boolean("OriginalColor", true)
+    private val disengageFix by boolean("脱盒修复", true)
+
     private object ReplaceFriendNames : ToggleableConfigurable(this, "ObfuscateFriends", true) {
+        val friendsApplyGarbled by boolean("FriendsApplyGarbled", false)
         val colorMode = choices<GenericColorMode<Unit>>(
             ReplaceFriendNames,
             "ColorMode",
@@ -74,7 +88,8 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
         }
     }
 
-    private object ReplaceOthers : ToggleableConfigurable(this, "ObfuscateOthers", false) {
+    object ReplaceOthers : ToggleableConfigurable(this, "ObfuscateOthers", false) {
+        val othersApplyGarbled by boolean("OthersApplyGarbled", true)
         val colorMode = choices<GenericColorMode<Unit>>(
             ReplaceOthers,
             "ColorMode",
@@ -104,17 +119,58 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
         otherPlayers = { ReplaceOthers.colorMode.activeChoice.getColor(Unit) },
     )
 
+    private var lastPlayerNameCheck = 0L
+    private const val NAME_CHECK_INTERVAL = 3000L
+    private const val ALPHABET =
+        "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿȦȧḂḃĊċḊḋĖėḞḟĠġḢḣḲḳĿŀṀṃṄṅṖṗṘṙŚśṪṫŴŵẌẍŶŷẐẑ"
+    fun getGarbledName(baseName: String): String {
+        val nowTick = (System.currentTimeMillis()).toInt()
+        val seed = baseName.hashCode() xor nowTick
+        val rng = Random(seed)
+        val sb = StringBuilder(baseName.length)
+        repeat(baseName.length) {
+            sb.append(ALPHABET[rng.nextInt(ALPHABET.length)])
+        }
+        return sb.toString()
+    }
+
     @Suppress("unused")
     private val renderHandler = handler<GameTickEvent> {
+
         val friendMappings = if (ReplaceFriendNames.enabled) {
             FriendManager.friends.filter { it.name.isNotBlank() }.mapIndexed { id, friend ->
-                friend.name to (friend.alias ?: friend.getDefaultName(id))
+                val targetName = if (ReplaceFriendNames.friendsApplyGarbled) {
+                    getGarbledName(friend.name)
+                } else {
+                    friend.alias ?: friend.getDefaultName(id)
+                }
+                friend.name to targetName
             }
         } else {
             emptyList()
         }
+        val mc = MinecraftClient.getInstance()
+        val player = mc.player ?: return@handler
+        val currentTime = System.currentTimeMillis()
+        var cachedPlayerName = player.name.string
+        if (currentTime - lastPlayerNameCheck >= NAME_CHECK_INTERVAL) {
+            cachedPlayerName = player.name.string
+            lastPlayerNameCheck = currentTime
+        }
 
-        val playerName = player.gameProfile?.name
+        val playerName = if (disengageFix) {
+            cachedPlayerName
+        } else {
+            player.gameProfile?.name ?: mc.session.username
+        }
+
+
+        val selfPair = playerName to if (applyGarbled) {
+            getGarbledName(replacement)
+        } else {
+            replacement
+        }
+
 
         val otherPlayers = if (ReplaceOthers.enabled) {
             network.playerList?.mapNotNull { playerListEntry ->
@@ -126,26 +182,36 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
             null
         } ?: emptyList()
 
-        this.replacementMappings.update(
-            mc.session.username to this.replacement,
+        replacementMappings.update(
+            selfPair,
             friendMappings,
             otherPlayers,
             coloringInfo
         )
     }
 
-    fun replace(original: String): String {
-        if (!running) {
-            return original
+    private val stringMappingCache = LfuCache<String, String>(DEFAULT_CACHE_SIZE)
+    private val orderedTextMappingCache = LfuCache<OrderedText, OrderedText>(DEFAULT_CACHE_SIZE)
+
+    fun replace(original: String): String =
+        when {
+            !running -> original
+            mc.isOnThread -> stringMappingCache.getOrPut(original) { uncachedReplace(original) }
+            else -> uncachedReplace(original)
         }
-
-        val output = StringBuilder(32)
-
+    fun replace(original: Text): Text {
+        if (!running) return original
+        val degenerated = LegacyTextSanitizer.SanitizedLegacyText(original)
+        return wrap(degenerated).toText()
+    }
+    private  fun uncachedReplace(original: String): String {
         val replacements = replacementMappings.findReplacements(original)
 
         if (replacements.isEmpty()) {
             return original
         }
+
+        val output = StringBuilder(DEFAULT_BUFFER_SIZE)
 
         var currReplacementIndex = 0
         var currentIndex = 0
@@ -163,7 +229,7 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
             } else {
                 val maxCopyIdx = replacementStartIdx ?: original.length
 
-                output.append(original.subSequence(currentIndex, maxCopyIdx))
+                output.append(original, currentIndex, maxCopyIdx)
 
                 currentIndex = maxCopyIdx
             }
@@ -172,79 +238,97 @@ object ModuleNameProtect : ClientModule("NameProtect", Category.MISC) {
         return output.toString()
     }
 
-    class NameProtectOrderedText(original: OrderedText) : OrderedText {
-        private val mappedCharacters = ArrayList<MappedCharacter>(64)
+    fun wrap(original: OrderedText): OrderedText =
+        when {
+            !running -> original
+            mc.isOnThread -> orderedTextMappingCache.getOrPut(original) { uncachedWrap(original) }
+            else -> uncachedWrap(original)
+        }
 
-        init {
-            val originalCharacters = buildList {
-                original.accept { _, style, codePoint ->
-                    add(
-                        MappedCharacter(
-                            style = style,
-                            bypass = style.color?.bypassesNameProtection ?: false,
-                            codePoint = codePoint
-                        )
-                    )
-                    true
+    /**
+     * Wraps an [OrderedText] to apply name protection.
+     */
+    @Suppress("NestedBlockDepth","CognitiveComplexMethod")
+    private fun uncachedWrap(original: OrderedText): OrderedText {
+        val mappedCharacters = ObjectArrayList<MappedCharacter>(DEFAULT_BUFFER_SIZE)
+
+        val originalCharacters = ObjectArrayList<MappedCharacter>(DEFAULT_BUFFER_SIZE)
+
+        original.accept { _, style, codePoint ->
+            originalCharacters += MappedCharacter(
+                style,
+                style.color?.bypassesNameProtection ?: false,
+                codePoint
+            )
+
+            true
+        }
+
+        val text = buildString(originalCharacters.size) {
+            originalCharacters.forEach { appendCodePoint(it.codePoint) }
+        }
+        val replacements = replacementMappings.findReplacements(text)
+
+        var currReplacementIndex = 0
+        var currentIndex = 0
+
+        while (currentIndex < originalCharacters.size) {
+            val replacement = replacements.getOrNull(currReplacementIndex)
+
+            val replacementStartIdx = replacement?.first?.start
+
+            if (replacementStartIdx == currentIndex) {
+                if (originalCharacters[replacementStartIdx].bypassesNameProtection) {
+                    currReplacementIndex++
+
+                    continue
                 }
-            }
 
-            val rawText = originalCharacters.mapString { it.codePoint.toChar() }
-            val replacements = replacementMappings.findReplacements(rawText)
-
-            var currentIdx = 0
-            var replacementIdx = 0
-
-            while (currentIdx < originalCharacters.size) {
-                val rep = replacements.getOrNull(replacementIdx)
-                val repStart = rep?.first?.start
-
-                if (repStart == currentIdx) {
-                    val target = rep
-                    if (originalCharacters[repStart].bypass) {
-                        replacementIdx++
-                        continue
-                    }
-
-                    val (startColor, endColor) = target.second.colorGetter().let {
-
-                        it to it
-                    }
-
-                    val chars = target.second.newName
-
-                    chars.forEachIndexed { i, ch ->
-                        val factor = if (chars.length > 1) i.toDouble() / (chars.length - 1) else 0.0
-                        val interpColor = startColor.interpolateTo(endColor, factor)
-
-                        mappedCharacters += MappedCharacter(
-                            style = originalCharacters[currentIdx].style.withColor(interpColor.toARGB()),
-                            bypass = false,
-                            codePoint = ch.code
-                        )
-                    }
-
-                    currentIdx = target.first.end + 1
-                    replacementIdx++
+                val color: Color4b = if (originalColor) {
+                    originalCharacters[currentIndex].style.color?.rgb?.let { Color4b(it) }
+                        ?: replacement.second.colorGetter()
                 } else {
-                    val end = repStart ?: originalCharacters.size
-                    mappedCharacters += originalCharacters.subList(currentIdx, end)
-                    currentIdx = end
+                    replacement.second.colorGetter()
+                }
+
+                mappedCharacters.ensureCapacity(mappedCharacters.size + replacement.second.newName.length)
+                replacement.second.newName.mapTo(mappedCharacters) { ch ->
+                    MappedCharacter(
+                        originalCharacters[currentIndex].style.withColor(color.toARGB()),
+                        false,
+                        ch.code
+                    )
+                }
+
+                currentIndex = replacement.first.end + 1
+                currReplacementIndex += 1
+            } else {
+                val maxCopyIdx = replacementStartIdx ?: originalCharacters.size
+
+                mappedCharacters.addAll(originalCharacters.subList(currentIndex, maxCopyIdx))
+
+                currentIndex = maxCopyIdx
+            }
+        }
+
+        // Access the inner array
+        val innerMappedCharacters: Array<out Any?> = mappedCharacters.elements()
+        val size = mappedCharacters.size
+
+        return OrderedText { visitor ->
+            for (index in 0 until size) {
+                val char = innerMappedCharacters[index] as MappedCharacter
+                if (!visitor.accept(index, char.style, char.codePoint)) {
+                    return@OrderedText false
                 }
             }
-        }
 
-        override fun accept(visitor: CharacterVisitor): Boolean {
-            var idx = 0
-            for ((style, _, cp) in mappedCharacters) {
-                if (!visitor.accept(idx++, style, cp)) return false
-            }
-            return true
+            true
         }
-
-        @JvmRecord
-        private data class MappedCharacter(val style: Style, val bypass: Boolean, val codePoint: Int)
     }
+
+    @JvmRecord
+    private data class MappedCharacter(val style: Style, val bypassesNameProtection: Boolean, val codePoint: Int)
 }
 
 /**
@@ -259,5 +343,5 @@ fun Text.sanitizeForeignInput(): Text {
         return degeneratedText.toText()
     }
 
-    return ModuleNameProtect.NameProtectOrderedText(degeneratedText).toText()
+    return ModuleNameProtect.wrap(degeneratedText).toText()
 }

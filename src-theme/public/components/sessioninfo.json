@@ -1,0 +1,32 @@
+{
+  "name": "SessionInfo",
+  "enabled": true,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "Left",
+    "horizontalOffset": 5,
+    "verticalAlignment": "Top",
+    "verticalOffset": 80
+  },
+  "values": [
+    {
+      "type": "CHOOSE",
+      "name": "Mode",
+      "value": "Simple",
+      "choices": [
+        "Simple",
+        "Ambient"
+      ]
+    },
+      {
+        "type": "BOOLEAN",
+        "name": "Divider",
+        "value": true
+      },
+      {
+        "type": "BOOLEAN",
+        "name": "Gradient",
+        "value": false
+      }
+  ]
+}

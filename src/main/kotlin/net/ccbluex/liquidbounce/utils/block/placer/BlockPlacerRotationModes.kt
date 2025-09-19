@@ -18,8 +18,8 @@
  */
 package net.ccbluex.liquidbounce.utils.block.placer
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
 import net.ccbluex.liquidbounce.utils.aiming.PostRotationExecutor
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
@@ -80,14 +80,14 @@ class NormalRotationMode(configurable: ChoiceConfigurable<BlockPlacerRotationMod
 
                 raytraceResult.type == HitResult.Type.BLOCK && raytraceResult.blockPos == interactedBlockPos
             }, {
-                PostRotationExecutor.addTask(placer.module, postMove, priority = true, task = {
+                PostRotationExecutor.addTask(placer.module, postMove, priority = true) {
                     if (placer.ticksToWait > 0) {
                         return@addTask
                     }
 
                     placer.doPlacement(isSupport, pos, placementTarget)
                     placer.ranAction = true
-                })
+                }
             })
         )
 

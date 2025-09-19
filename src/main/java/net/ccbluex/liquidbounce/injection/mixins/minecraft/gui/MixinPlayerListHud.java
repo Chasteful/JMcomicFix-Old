@@ -31,8 +31,9 @@ import net.ccbluex.liquidbounce.features.misc.FriendManager;
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAntiStaff;
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleBetterTab;
 import net.ccbluex.liquidbounce.features.module.modules.misc.Visibility;
-import net.ccbluex.liquidbounce.integration.theme.component.ComponentOverlay;
-import net.ccbluex.liquidbounce.integration.theme.component.FeatureTweak;
+import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.ModuleNameProtect;
+import net.ccbluex.liquidbounce.integration.theme.component.ComponentManager;
+import net.ccbluex.liquidbounce.integration.theme.component.ComponentTweak;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -180,7 +181,7 @@ public abstract class MixinPlayerListHud {
             at = @At("HEAD"),
             cancellable = true)
     private void onRenderHead(CallbackInfo ci) {
-        if (ComponentOverlay.isTweakEnabled(FeatureTweak.DISABLE_PLAYERLIST_HUD)) {
+        if (ComponentManager.isTweakEnabled(ComponentTweak.DISABLE_PLAYER_LIST_HUD)) {
             ci.cancel();
         }
     }
@@ -194,13 +195,20 @@ public abstract class MixinPlayerListHud {
         Text hudFooter = this.footer;
         PlayerListHud self = (PlayerListHud) (Object) this;
         List<PlayerEntry> players = collectPlayerEntries().stream().map(entry -> {
-            Text fullName = self.getPlayerName(entry);
+            Text originalName = self.getPlayerName(entry);
+            Text fullName = ModuleNameProtect.INSTANCE.replace(
+                    ModuleBetterTab.isVisible(Visibility.NAME_ONLY)
+                            ? Text.of(entry.getProfile().getName())
+                            : originalName
+            );
             Text latency = Text.literal(entry.getLatency() + "ms")
                     .styled(style -> style.withColor(getLatencyColor(entry.getLatency())));
             boolean isFriend = FriendManager.INSTANCE.isFriend(entry.getProfile().getName());
             boolean isStaff = ModuleAntiStaff.INSTANCE.shouldShowAsStaffOnTab(entry.getProfile().getName());
+            boolean isSelf = MinecraftClient.getInstance().player != null
+                    && entry.getProfile().getId().equals(MinecraftClient.getInstance().player.getUuid());
             String uuid = entry.getProfile().getId().toString();
-            return new PlayerEntry(fullName, uuid, latency, isFriend, isStaff);
+            return new PlayerEntry(fullName, uuid, latency, isFriend, isStaff, isSelf);
         }).collect(Collectors.toList());
 
 

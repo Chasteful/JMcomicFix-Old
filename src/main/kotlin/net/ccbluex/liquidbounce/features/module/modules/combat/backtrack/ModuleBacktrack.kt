@@ -19,15 +19,16 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat.backtrack
 
 import com.google.common.collect.Queues
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.*
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.features.module.modules.combat.velocity.mode.VelocityHeypixel
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.Chronometer
@@ -41,6 +42,7 @@ import net.ccbluex.liquidbounce.utils.render.WireframePlayer
 import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.TrackedPosition
+import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.network.packet.Packet
 import net.minecraft.network.packet.c2s.play.ChatMessageC2SPacket
 import net.minecraft.network.packet.c2s.play.CommandExecutionC2SPacket
@@ -223,7 +225,7 @@ object ModuleBacktrack : ClientModule("Backtrack", Category.COMBAT) {
         @Suppress("unused")
         private val renderHandler = handler<WorldRenderEvent> {
             val (entity, pos) = getEntityPosition() ?: return@handler
-
+            if (entity !is PlayerEntity) return@handler
             val baseColor = colorMode.activeChoice.getColor(null)
             val fillColor = baseColor.withAlpha(fillAlpha)
             val outlineColor = baseColor.withAlpha(outlineAlpha)
@@ -298,11 +300,11 @@ object ModuleBacktrack : ClientModule("Backtrack", Category.COMBAT) {
         target = enemy
     }
 
-    override fun enable() {
+    override fun onEnabled() {
         clear(false)
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         clear(true)
     }
 
@@ -340,6 +342,7 @@ object ModuleBacktrack : ClientModule("Backtrack", Category.COMBAT) {
 
         return (inRange || !trackingBufferChronometer.hasElapsed(trackingBuffer.toLong())) &&
             target.shouldBeAttacked() &&
+            !VelocityHeypixel.isActive()&&
             player.age > 10 &&
             currentChance < chance &&
             chronometer.hasElapsed() &&

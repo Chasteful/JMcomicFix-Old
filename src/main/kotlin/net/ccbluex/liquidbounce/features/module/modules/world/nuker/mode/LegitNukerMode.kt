@@ -18,8 +18,9 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.world.nuker.mode
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.event.events.CancelBlockBreakingEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -33,6 +34,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModuleP
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.utils.raytraceBlock
+import net.ccbluex.liquidbounce.utils.aiming.utils.raytraceBlockRotation
 import net.ccbluex.liquidbounce.utils.block.doBreak
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.block.isNotBreakable
@@ -111,6 +113,13 @@ object LegitNukerMode : Choice("Legit") {
         wasTarget = currentTarget
     }
 
+    @Suppress("unused")
+    private val cancelBlockBreakingHandler = handler<CancelBlockBreakingEvent> { event ->
+        if (currentTarget != null && !ModulePacketMine.running) {
+            event.cancelEvent()
+        }
+    }
+
     /**
      * Chooses the best block to break next and aims at it.
      */
@@ -126,7 +135,7 @@ object LegitNukerMode : Choice("Legit") {
                 return@let
             }
 
-            val raytraceResult = raytraceBlock(
+            val raytraceResult = raytraceBlockRotation(
                 eyes = eyes,
                 pos = pos,
                 state = blockState,
@@ -149,7 +158,7 @@ object LegitNukerMode : Choice("Legit") {
         }
 
         for ((pos, blockState) in areaMode.activeChoice.lookupTargets(range)) {
-            val raytraceResult = raytraceBlock(
+            val raytraceResult = raytraceBlockRotation(
                 eyes = eyes,
                 pos = pos,
                 state = blockState,

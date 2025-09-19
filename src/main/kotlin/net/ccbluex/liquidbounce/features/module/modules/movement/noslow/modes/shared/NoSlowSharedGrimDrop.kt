@@ -1,14 +1,14 @@
 package net.ccbluex.liquidbounce.features.module.modules.movement.noslow.modes.shared
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.event.events.PlayerUseMultiplier
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.minecraft.util.Hand
 import net.minecraft.item.consume.UseAction
 
-internal class NoSlowSharedGrimDrop (override val parent: ChoiceConfigurable<*>) : Choice("Heypixel") {
+internal class NoSlowSharedGrimDrop (override val parent: ChoiceConfigurable<*>) : Choice("GrimDrop") {
 
     private var dropped = false
 

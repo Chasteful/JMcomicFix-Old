@@ -3,7 +3,6 @@ package net.ccbluex.liquidbounce.utils.session
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.ChatReceiveEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
-import net.ccbluex.liquidbounce.event.events.OverlayChatEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.text.Text
@@ -13,16 +12,11 @@ import java.util.concurrent.TimeUnit
 object GameWins: EventListener {
     private var titleField: Field? = null
     private var subtitleField: Field? = null
-    private val winsCounterLock = Any()
     private var lastWinDetectionTime = 0L
     private val cooldownMillis = TimeUnit.SECONDS.toMillis(10)
 
-    var localWinsCounter = 0
-        private set(value) {
-            synchronized(winsCounterLock) {
-                field = value
-            }
-        }
+    var victoryCount = 0
+        private set
 
     init {
         try {
@@ -42,9 +36,9 @@ object GameWins: EventListener {
                 val currentTitle = getTitle()
                 val currentSubtitle = getSubtitle()
 
-                if (checkWinCondition(currentTitle) || checkWinCondition(currentSubtitle)) {
+                if (checkWinCondition(currentTitle) || checkSubtitleWinCondition(currentSubtitle)) {
                     lastWinDetectionTime = currentTime
-                    localWinsCounter++
+                    victoryCount++
                 }
             } catch (e: Exception) {
                 println("Error processing win condition: ${e.message}")
@@ -60,7 +54,7 @@ object GameWins: EventListener {
 
                 if (checkChatWinCondition(event.textData)) {
                     lastWinDetectionTime = currentTime
-                    localWinsCounter++
+                    victoryCount++
                 }
             } catch (e: Exception) {
                 println("Error processing chat win condition: ${e.message}")
@@ -92,6 +86,13 @@ object GameWins: EventListener {
         }
     }
 
+    private fun checkSubtitleWinCondition(text: Text?): Boolean {
+        if (text == null || text.string.isEmpty()) return false
+        return winKeywordsSubtitle.any { keyword ->
+            text.string.contains(keyword, ignoreCase = true)
+        }
+    }
+
     private fun checkChatWinCondition(text: Text): Boolean {
         val message = text.string
         if (message.isEmpty()) return false
@@ -101,19 +102,22 @@ object GameWins: EventListener {
     }
 
     private val winKeywordsTitle = listOf(
-        "victory", "you win", "Good Game",
-        "胜", "赢", "游戏结束",
+        "胜利","victory",
+    )
+
+    private val winKeywordsSubtitle = listOf(
+        "恭喜你赢下了比赛", "你是最后的站立者",
+        "you win", "Good Game",
         "victoire", "gagné",
         "gewonnen",
         "vittoria",
         "¡ganaste!", "victoria",
         "победа",
-        "Fly",
         "승리",
         "勝った", "勝利"
     )
 
     private val winKeywordsChatMessage = listOf(
-        "YOU WON!!!",
+        "YOU WON!!!"
     )
 }

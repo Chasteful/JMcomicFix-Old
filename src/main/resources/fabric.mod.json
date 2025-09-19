@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "liquidbounce",
   "version": "${version}",
-  "name": "ZenlessZoneZero",
+  "name": "JMcomicFix",
   "description": "This LiquidBounce NextGen modification goes beyond just theme alterations.",
   "authors": [
-    "CCBlueX"
+    "KotlinModule"
   ],
   "contributors": $contributors,
   "contact": {
@@ -35,7 +35,8 @@
       "${minecraft_version}"
     ],
     "fabricloader": ">=${min_loader_version}",
-    "fabric-language-kotlin": ">=${fabric_kotlin_version}"
+    "fabric-language-kotlin": ">=${fabric_kotlin_version}",
+    "baritone": "*"
   },
   "suggests": {
     "fabric": ">=${fabric_version}",

@@ -1,21 +1,3 @@
-/*
- * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
- *
- * Copyright (c) 2015 - 2025 CCBlueX
- *
- * LiquidBounce is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * LiquidBounce is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
- */
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
@@ -30,6 +12,8 @@ import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.entity.passive.IronGolemEntity
+import net.minecraft.entity.mob.SilverfishEntity
 import java.awt.Color
 
 /**
@@ -65,17 +49,28 @@ object ModuleTeams : ClientModule("Teams", Category.MISC) {
 
     /**
      * Check if [entity] is in your own team using scoreboard,
-     * name color, armor color or team prefix.
+     * name color, armor color, team prefix, or team mob nametag color.
      */
-    @Suppress("ReturnCount")
     private fun isInClientPlayersTeam(entity: LivingEntity) =
-        matches.any { it.testMatches(entity) } || checkArmor(entity)
+        matches.any { it.testMatches(entity) } || checkArmor(entity) || checkTeamMob(entity)
 
     /**
      * Checks if the color of any armor piece matches.
      */
     private fun checkArmor(entity: LivingEntity) =
         entity is PlayerEntity && armorColor.any { it.matchesArmorColor(entity) }
+
+    /**
+     * Checks if the entity is a team mob (Iron Golem or Silverfish) with matching nametag color.
+     */
+    private fun checkTeamMob(entity: LivingEntity): Boolean {
+        if (entity !is IronGolemEntity && entity !is SilverfishEntity) return false
+
+        val playerColor = player.displayName?.style?.color
+        val mobColor = entity.displayName?.style?.color
+
+        return playerColor != null && mobColor != null && playerColor == mobColor
+    }
 
     /**
      * Returns the team color of the [entity] or null if the entity is not in a team.
@@ -119,7 +114,6 @@ object ModuleTeams : ClientModule("Teams", Category.MISC) {
                 ?.string
                 ?.stripMinecraftColorCodes()
                 ?.split(" ")
-
 
             targetSplit != null
                 && clientSplit != null

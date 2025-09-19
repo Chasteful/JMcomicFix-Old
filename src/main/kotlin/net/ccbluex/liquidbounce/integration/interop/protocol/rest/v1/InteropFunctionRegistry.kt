@@ -6,7 +6,7 @@
  * LiquidBounce is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * (at any later version.
  *
  * LiquidBounce is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,14 +27,20 @@ import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.*
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.features.*
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.*
 import net.ccbluex.netty.http.rest.Node
+import org.spongepowered.asm.mixin.Mixins.getConfigs
 
 internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/client") {
     // Client Functions
     get("/info", ::getClientInfo)
+    get("/release",::getRelease)
     get("/update", ::getUpdateInfo)
     post("/exit", ::postExit)
     get("/window", ::getWindowInfo)
     post("/browse", ::postBrowse)
+
+    // OS File Functions
+    post("/browsePath", ::postBrowsePath)
+    post("/fileDialog", ::postFileDialog)
 
     // LocalStorage Functions
     get("/localStorage/all", ::getAllLocalStorage)
@@ -44,7 +50,9 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
     delete("/localStorage", ::deleteLocalStorage)
 
     // Theme Functions
-    get("/theme", ::getThemeInfo)
+    get("/theme", ::getTheme) // returns current theme
+    get("/theme/:id", ::getTheme)
+    get("/shader", ::getToggleShaderInfo)
     post("/shader", ::postToggleShader)
     get("/theme/shaderEnabled", ::getShaderEnabled)
     post("/theme/shaderEnabled", ::postSetShaderEnabled)
@@ -66,9 +74,15 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
     }
     get("/module/:name", ::getModule)
 
+    // Config Functions
+    get("/configs", ::getConfigs)
+    post("/config/load", ::loadConfig)
+    post("/config/save", ::saveConfig)
+    delete("/config", ::deleteConfig)
 
     // Component Functions
     get("/components", ::getComponents)
+    get("/components/:id", ::getComponents)
 
     // Session Functions
     get("/session", ::getSessionInfo)
@@ -99,7 +113,7 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
     delete("/proxy", ::deleteProxy)
     get("/proxies", ::getProxies).apply {
         post("/add", ::postAddProxy)
-        post("/clipboard", ::postClipboardProxy)
+        post("/add/clipboard", ::postClipboardProxy)
         post("/edit", ::postEditProxy)
         post("/check", ::postCheckProxy)
         delete("/remove", ::deleteRemoveProxy)
@@ -147,7 +161,8 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
     get("/crosshair", ::getCrosshairData)
 
     // Registry Functions
-    get("/registries", ::getRegistries)
+    get("/registry/:name", ::getRegistry)
+    get("/registry/:name/groups", ::getRegistryGroups)
 
     // ServerList Functions
     get("/servers", ::getServers).apply {
@@ -165,6 +180,7 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
         get("/effectTexture",::getEffectTexture)
         get("/itemTexture", ::getItemTexture)
         get("/skin", ::getSkin)
+//        get("/itemStackTexture",::getItemStackTexture)
     }
 
     // World Functions
@@ -172,5 +188,16 @@ internal fun registerInteropFunctions(node: Node) = node.withPath("/api/v1/clien
         post("/join", ::postJoinWorld)
         post("/edit", ::postEditWorld)
         post("/delete", ::postDeleteWorld)
+    }
+
+    // Marketplace Functions
+    get("/marketplace", ::getMarketplaceItems).apply {
+        get("/:id", ::getMarketplaceItem)
+        get("/:id/revisions", ::getMarketplaceItemRevisions)
+        get("/:id/revisions/:revisionId", ::getMarketplaceItemRevision)
+        post("/:id/subscribe", ::subscribeMarketplaceItem)
+        post("/:id/unsubscribe", ::unsubscribeMarketplaceItem)
+        get("/:id/reviews", ::getMarketplaceItemReviews)
+        post("/:id/reviews", ::postMarketplaceItemReview)
     }
 }

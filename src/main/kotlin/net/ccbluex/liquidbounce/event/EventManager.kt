@@ -60,6 +60,7 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     KeyEvent::class,
     MouseRotationEvent::class,
     KeybindChangeEvent::class,
+    KeyBindingCPSEvent::class,
     KeybindIsPressedEvent::class,
     AttackEntityEvent::class,
     SessionEvent::class,
@@ -72,6 +73,7 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     BlockVelocityMultiplierEvent::class,
     BlockSlipperinessMultiplierEvent::class,
     EntityMarginEvent::class,
+    EntityHealthUpdateEvent::class,
     HealthUpdateEvent::class,
     DeathEvent::class,
     VirtualTypeEvent::class,
@@ -114,6 +116,7 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     AccountManagerLoginResultEvent::class,
     VirtualScreenEvent::class,
     FpsChangeEvent::class,
+    FpsLimitEvent::class,
     ClientPlayerDataEvent::class,
     RotationUpdateEvent::class,
     RefreshArrayListEvent::class,
@@ -125,8 +128,6 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     GameModeChangeEvent::class,
     ComponentsUpdate::class,
     ResourceReloadEvent::class,
-    ProxyAdditionResultEvent::class,
-    ProxyEditResultEvent::class,
     ProxyCheckResultEvent::class,
     ScaleFactorChangeEvent::class,
     DrawOutlinesEvent::class,
@@ -134,8 +135,6 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     ScheduleInventoryActionEvent::class,
     SelectHotbarSlotSilentlyEvent::class,
     SpaceSeperatedNamesChangeEvent::class,
-    TitleControlChangeEvent::class,
-    BetterTabChangeEvent::class,
     HudValueChangeEvent::class,
     HudLayoutEditorValueChangeEvent::class,
     BrowserUrlChangeEvent::class,
@@ -155,6 +154,12 @@ val ALL_EVENT_CLASSES: Array<KClass<out Event>> = arrayOf(
     TitleEvent.Subtitle::class,
     TitleEvent.Fade::class,
     TitleEvent.Clear::class,
+    ProgressEvent::class,
+    NameProtectEvent::class,
+    SelectingHotbarSlotSilentlyEvent::class,
+    ResetHotbarSlotSilentlyEvent::class,
+    HeypixelSWKillEvent::class,
+    ModuleBindChangeEvent::class,
 )
 
 /**
@@ -220,17 +225,19 @@ object EventManager {
 
         val target = registry[event.javaClass] ?: return event
 
+        event.isCompleted = false
         for (eventHook in target) {
             if (!eventHook.handlerClass.running) {
                 continue
             }
 
             runCatching {
-                eventHook.handler(event)
+                eventHook.handler.accept(event)
             }.onFailure {
                 logger.error("Exception while executing handler.", it)
             }
         }
+        event.isCompleted = true
 
         return event
     }

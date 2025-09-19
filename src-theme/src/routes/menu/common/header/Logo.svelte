@@ -2,7 +2,7 @@
     import {toggleBackgroundShaderEnabled} from "../../../../integration/rest";
     import {onDestroy,} from "svelte";
     import {currentLogo, logoVariants} from "./logoStorage";
-    import {lock} from "../../LoginMenu/locked_store";
+    import {lock} from "../../login/locked_store";
     import ClientLogo from "../../../hud/common/ClientLogo.svelte";
 
     export let showLogo: boolean;
@@ -102,7 +102,7 @@
 {/if}
 
 <style lang="scss">
-  @import "../../../../colors";
+  @use "../../../../colors" as *;
 
 
   .logo-container {

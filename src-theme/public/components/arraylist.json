@@ -1,0 +1,28 @@
+{
+  "name": "ArrayList",
+  "enabled": true,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "Right",
+    "horizontalOffset": 0,
+    "verticalAlignment": "Top",
+    "verticalOffset": 0
+  },
+  "values": [
+    {
+      "type": "CHOOSE",
+      "name": "Mode",
+      "value": "Simple",
+      "choices": [
+        "Simple",
+        "Rise"
+      ]
+    },
+    {
+      "type": "BOOLEAN",
+      "name": "Scoreboard",
+      "value": false
+    }
+  ],
+  "tweaks": ["DISABLE_SCOREBOARD"]
+}

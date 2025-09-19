@@ -1,0 +1,28 @@
+{
+  "name": "Keystrokes",
+  "enabled": false,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "Left",
+    "horizontalOffset": 720,
+    "verticalAlignment": "Bottom",
+    "verticalOffset": 15
+  },
+  "values": [
+    {
+      "type": "BOOLEAN",
+      "name": "ShowJumpKey",
+      "value": true
+    },
+    {
+      "type": "BOOLEAN",
+      "name": "ShowAttackAndUseKey",
+      "value": true
+    },
+    {
+      "type": "BOOLEAN",
+      "name": "ShowSprintAndSneakKey",
+      "value": false
+    }
+  ]
+}

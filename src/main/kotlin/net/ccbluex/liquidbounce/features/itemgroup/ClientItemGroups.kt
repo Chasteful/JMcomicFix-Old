@@ -18,14 +18,14 @@
  */
 package net.ccbluex.liquidbounce.features.itemgroup
 
-import com.mojang.blaze3d.systems.RenderSystem
 import net.ccbluex.liquidbounce.config.ConfigSystem
-import net.ccbluex.liquidbounce.config.types.Configurable
+import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.features.itemgroup.groups.ContainerItemGroup
 import net.ccbluex.liquidbounce.features.itemgroup.groups.ExploitsItemGroup
 import net.ccbluex.liquidbounce.features.itemgroup.groups.HeadsItemGroup
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.logger
+import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.item.createItem
 import net.minecraft.item.ItemStack
 import net.minecraft.nbt.NbtCompound
@@ -39,7 +39,7 @@ import net.minecraft.nbt.NbtCompound
 object ClientItemGroups : Configurable("tabs") {
 
     private var beenSetup = false
-    val containers by textArray("Containers", mutableListOf())
+    val containers by textList("Containers", mutableListOf())
 
     fun storeAsContainerItem(compound: NbtCompound) {
         val compoundString = compound.toString()
@@ -49,9 +49,9 @@ object ClientItemGroups : Configurable("tabs") {
         }
 
         containers.add(compoundString)
-        ConfigSystem.storeConfigurable(this)
+        ConfigSystem.store(this)
 
-        RenderSystem.recordRenderCall {
+        mc.execute {
             chat("§aAdded container to creative inventory")
         }
     }
@@ -62,12 +62,12 @@ object ClientItemGroups : Configurable("tabs") {
 
     fun clearContainers() {
         containers.clear()
-        ConfigSystem.storeConfigurable(this)
+        ConfigSystem.store(this)
     }
 
     fun removeContainer(index: Int) {
         containers.removeAt(index)
-        ConfigSystem.storeConfigurable(this)
+        ConfigSystem.store(this)
     }
 
     /**

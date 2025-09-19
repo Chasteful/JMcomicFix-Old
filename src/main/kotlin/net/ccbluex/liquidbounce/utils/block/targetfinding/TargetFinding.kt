@@ -62,8 +62,9 @@ class BlockPlacementTargetFindingOptions(
     val playerLocationOnPlacement: PlayerLocationOnPlacement
 ) {
     companion object {
+        @JvmField
         val PRIORITIZE_LEAST_BLOCK_DISTANCE: Comparator<Vec3i> = compareByDescending { vec ->
-            Vec3d.of(vec).add(0.5, 0.5, 0.5).squaredDistanceTo(mc.player!!.pos)
+            player.squaredDistanceTo(vec.x.toDouble(), vec.y.toDouble(), vec.z.toDouble())
         }
     }
 }
@@ -305,13 +306,9 @@ private fun findTargetPointOnFace(
         )
     }.maxWithOrNull(
         Comparator.comparingDouble<PointOnFace> {
-            it.point.subtract(
-                Vec3d(
-                    0.5,
-                    0.5,
-                    0.5
-                )
-            ).multiply(Vec3d.of(targetPlan.interactionDirection.vector)).lengthSquared()
+            it.point.subtract(0.5, 0.5, 0.5,)
+                .multiply(Vec3d.of(targetPlan.interactionDirection.vector))
+                .lengthSquared()
         }.thenComparingDouble { it.point.y }
     )
     return face

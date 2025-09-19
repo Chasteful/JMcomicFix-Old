@@ -1,6 +1,6 @@
 <script lang="ts">
     import {onMount, onDestroy} from "svelte";
-    import {getModules, getModuleSettings, setTyping} from "../../integration/rest";
+    import {getClientInfo, getModules, getModuleSettings, setTyping} from "../../integration/rest";
     import {groupByCategory} from "../../integration/util";
     import Panel from "./Panel.svelte";
     import Description from "./Description.svelte";
@@ -10,13 +10,16 @@
     import {ResolutionScaler} from "../../util/ResolutionScaler"
 
     import {
+        os,
         gridSize,
         showGrid,
         snappingEnabled,
         scaleFactor,
         showSearch,
         panelLength,
-        fontSize
+        fontSize,
+        moduleAutoCollapse,
+        moduleDescription
     } from "./clickgui_store";
     import type {
         ClickGuiValueChangeEvent,
@@ -29,6 +32,7 @@
         TogglableSetting
     } from "../../integration/types";
     import CtrlFTip from "./CtrlFTip.svelte";
+
 
     let resolutionScaler = new ResolutionScaler({
         baseResolution: {width: 1920, height: 1080}
@@ -51,6 +55,8 @@
         panelLengthFactor = configurable.value.find(v => v.name === "Length")?.value as number ?? 66
         ClickGuiFontSizeFactor = configurable.value.find(v => v.name === "FontSize")?.value as number ?? 14
         const snappingValue = configurable.value.find(v => v.name === "Snapping") as TogglableSetting;
+        $moduleDescription = configurable.value.find(v => v.name === "Description")?.value as boolean ?? false;
+        $moduleAutoCollapse = configurable.value.find(v => v.name === "ModuleAutoCollapse")?.value as boolean ?? true;
         $snappingEnabled = snappingValue?.value.find(v => v.name === "Enabled")?.value as boolean ?? true;
         $gridSize = snappingValue?.value.find(v => v.name === "GridSize")?.value as number ?? 10;
 
@@ -70,6 +76,8 @@
 
 
     onMount(async () => {
+        const info = await getClientInfo();
+        os.set(info.os);
         resolutionScaler.updateScaleFactor();
         scaleFactor.set(minecraftScaleFactor * clickGuiScaleFactor * resolutionScaler.getScaleFactor());
         panelLength.set(panelLengthFactor)
@@ -102,8 +110,9 @@
 
     <CtrlFTip showSearch={showSearch}/>
 
-    <Description/>
-
+    {#if $moduleDescription}
+        <Description/>
+    {/if}
     <Search modules={structuredClone(modules)}/>
 
 

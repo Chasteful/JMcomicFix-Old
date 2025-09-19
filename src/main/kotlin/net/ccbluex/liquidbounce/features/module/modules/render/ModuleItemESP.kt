@@ -18,8 +18,9 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -27,10 +28,11 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
+import net.ccbluex.liquidbounce.utils.render.WorldToScreen
 import net.minecraft.entity.Entity
 import net.minecraft.entity.ItemEntity
-import net.minecraft.util.math.Box
 import net.minecraft.item.Items.*
+import net.minecraft.util.math.Box
 
 /**
  * ItemESP module
@@ -39,20 +41,13 @@ import net.minecraft.item.Items.*
  */
 
 object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
+    private val fontRenderer
+        get() = FontManager.FONT_RENDERER
 
     override val baseKey: String
         get() = "liquidbounce.module.itemEsp"
 
-    @Suppress("unused")
-    private val showName by boolean("ShowName", true)
-
-    @Suppress("unused")
-    private val textShadow by boolean("TextShadow", true)
-
-    @Suppress("unused")
-    private val textColor by color("TextColor", Color4b(255, 255, 255, 255))
-
-    private val modes = choices("Mode", OutlineMode, arrayOf(GlowMode, OutlineMode, BoxMode))
+    private val modes = choices("Mode", NametagsMode, arrayOf(GlowMode, OutlineMode, BoxMode,NametagsMode))
     private val colorMode = choices("ColorMode", 2) {
         arrayOf(
             GenericStaticColorMode(it, Color4b(255, 179, 72, 255)),
@@ -70,6 +65,7 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
 
         TRIDENT,
         BOW,
+        FISHING_ROD,
         CROSSBOW,
         SHIELD,
         TOTEM_OF_UNDYING,
@@ -105,7 +101,6 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
         GOLDEN_APPLE,
 
         SNOWBALL,
-        EGG,
         TNT,
         FLINT_AND_STEEL
     )
@@ -113,7 +108,66 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
     val filteredItems by items(
         "Items",
         defaultItems.toMutableSet()
-    ).onChanged(::reloadRender)
+    )
+
+    private object NametagsMode : Choice("Nametags") {
+        override val parent: ChoiceConfigurable<Choice>
+            get() = modes
+        private val scale by float("Scale", 1f, 0.5f..4f)
+        private val maximumDistance by float("MaximumDistance", 50f, 1f..256f)
+        private val number by boolean("Number", true)
+        private val vanillaName by boolean("VanillaName",false)
+        @Suppress("unused")
+        val renderHandler = handler<OverlayRenderEvent> { event ->
+            val camera = mc.cameraEntity ?: return@handler
+
+            val items = world.entities.filterIsInstance<ItemEntity>()
+                .filter { it.stack.item in this@ModuleItemESP.filteredItems }
+                .filter { it.squaredDistanceTo(camera) <= maximumDistance * maximumDistance }
+
+            renderEnvironmentForGUI {
+                fontRenderer.withBuffers { buf ->
+                    for (item in items) {
+                        val pos = item.interpolateCurrentPosition(event.tickDelta)
+                        val screenPos = WorldToScreen.calculateScreenPos(
+                            pos.add(0.0, item.height + 0.25, 0.0)) ?: continue
+
+                        matrixStack.push()
+                        matrixStack.translate(screenPos.x, screenPos.y, 0f)
+
+                        val distanceScale = mc.player?.let {
+                            (1f / (it.distanceTo(item) * 0.1f)).coerceIn(0.5f, 2f) /5 * scale } ?: scale
+                        matrixStack.scale(distanceScale, distanceScale, 1f)
+                        val displayName = if  (vanillaName) {
+                            item.stack.name.string
+                        }else{
+                            item.stack.itemName.string
+                        }
+                        val count = item.stack.count
+                        val text = if (number && count > 1) "$displayName x$count" else displayName
+
+                        val processed = fontRenderer.process(text)
+                        val textWidth = fontRenderer.getStringWidth(processed)
+                        val textHeight = fontRenderer.height
+
+                        fontRenderer.draw(
+                            processed,
+                            -textWidth / 2f,
+                            -textHeight / 2f,
+                            true,
+                            z = 0.001f
+                        )
+                        fontRenderer.commit(buf)
+
+                        matrixStack.pop()
+                    }
+                }
+            }
+
+        }
+
+    }
+
 
     private object BoxMode : Choice("Box") {
 
@@ -154,10 +208,6 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
     object OutlineMode : Choice("Outline") {
         override val parent: ChoiceConfigurable<Choice>
             get() = modes
-    }
-
-    fun reloadRender(@Suppress("UNUSED_PARAMETER") any: Any) {
-        mc.worldRenderer.reload()
     }
 
     fun shouldRender(entity: Entity?): Boolean {

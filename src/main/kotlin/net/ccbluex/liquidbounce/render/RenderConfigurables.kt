@@ -1,23 +1,22 @@
 package net.ccbluex.liquidbounce.render
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.utils.rainbow
+import net.ccbluex.liquidbounce.render.engine.type.Color4b.Companion.hslToRgb
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
 import net.minecraft.block.BlockState
 import net.minecraft.entity.LivingEntity
 import net.minecraft.util.math.BlockPos
 
 abstract class GenericColorMode<in T>(name: String) : Choice(name) {
-    // 原方法
+
     abstract fun getColors(param: T): Pair<Color4b, Color4b>
     open fun getColor(param: T): Color4b = getColors(param).first
 
-    // 新增带角度参数的方法
     open fun getColor(param: T, angle: Int): Color4b {
-        // 默认实现忽略角度参数
+
         return getColor(param)
     }
 }
@@ -33,25 +32,50 @@ class GenericStaticColorMode(
 }
 
 class GenericSyncColorMode(
-    override val parent: ChoiceConfigurable<*>
+    override val parent: ChoiceConfigurable<*>,
+    defaultStartAlpha: Int = 255,
+    defaultEndAlpha: Int = 255
 ) : GenericColorMode<Any?>("Sync") {
 
+    private val startAlpha by int("StartAlpha", defaultStartAlpha, 0..255)
+    private val endAlpha by int("EndAlpha", defaultEndAlpha, 0..255)
+
     override fun getColors(param: Any?): Pair<Color4b, Color4b> {
-        return ModuleHud.PrimaryColor to ModuleHud.SecondaryColor
+        val themeColor = ModuleHud.getThemeColor()
+        val start = themeColor.first.with(a = startAlpha)
+        val end = themeColor.second.with(a = endAlpha)
+        return  end to start
     }
-}
-class GenericRainbowColorMode(
-    override val parent: ChoiceConfigurable<*>,
-    private val alpha: Int = 50
-) : GenericColorMode<Any?>("Rainbow") {
-
-    override fun getColors(param: Any?) = rainbow().with(a = alpha) to rainbow().with(a = alpha)
-
 
     override fun getColor(param: Any?, angle: Int): Color4b {
-        return rainbow(angle.toFloat()).with(a = alpha)
+        return getColors(param).first
     }
 }
+
+class GenericRainbowColorMode(
+    override val parent: ChoiceConfigurable<*>,
+    defaultAlpha: Int = 255,
+    defaultSaturation: Float = 0.95f,
+    defaultLightness: Float = 0.65f
+) : GenericColorMode<Any?>("Rainbow") {
+
+    private val alpha by int("Alpha", defaultAlpha, 0..255)
+    private val saturation by float("Saturation", defaultSaturation, 0f..1f)
+    private val lightness by float("Lightness", defaultLightness, 0f..1f)
+
+    override fun getColors(param: Any?): Pair<Color4b, Color4b> {
+        val hue1 = ((System.currentTimeMillis() % 4000) / 4000f)
+        val hue2 = (hue1 + 0.25f) % 1f
+        return hslToRgb(hue1, saturation, lightness, alpha) to
+            hslToRgb(hue2, saturation, lightness, alpha)
+    }
+
+    override fun getColor(param: Any?, angle: Int): Color4b {
+        val hue = ((System.currentTimeMillis() + angle) % 4000L) / 4000f
+        return hslToRgb(hue, saturation, lightness, alpha)
+    }
+}
+
 
 class GenericCustomColorMode(
     override val parent: ChoiceConfigurable<*>,

@@ -18,6 +18,8 @@
  */
 package net.ccbluex.liquidbounce.features.command.commands.client
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
 import net.ccbluex.liquidbounce.api.core.parse
@@ -26,16 +28,15 @@ import net.ccbluex.liquidbounce.config.AutoConfig
 import net.ccbluex.liquidbounce.config.AutoConfig.configs
 import net.ccbluex.liquidbounce.features.command.Command
 import net.ccbluex.liquidbounce.features.command.CommandExecutor.suspendHandler
-import net.ccbluex.liquidbounce.features.command.CommandFactory
 import net.ccbluex.liquidbounce.features.command.builder.CommandBuilder
 import net.ccbluex.liquidbounce.features.command.builder.ParameterBuilder
-import net.ccbluex.liquidbounce.features.command.builder.Parameters
+import net.ccbluex.liquidbounce.features.command.builder.modules
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.utils.client.*
 import net.minecraft.text.ClickEvent
 import net.minecraft.text.HoverEvent
 import net.minecraft.text.Text
-import java.io.Reader
+import org.apache.commons.io.input.CharSequenceReader
 
 /**
  * Config Command
@@ -44,7 +45,7 @@ import java.io.Reader
  * such as loading configuration from an external source or an API
  * and listing available configurations.
  */
-object CommandConfig : CommandFactory {
+object CommandConfig : Command.Factory {
 
     private const val CONFIGS_URL = "https://github.com/CCBlueX/LiquidCloud/tree/main/LiquidBounce/settings/nextgen"
 
@@ -61,13 +62,14 @@ object CommandConfig : CommandFactory {
 
     private fun browseSubcommand() = CommandBuilder
         .begin("browse")
-        .handler { _, _ ->
+        .handler {
             browseUrl(CONFIGS_URL)
         }
         .build()
+
     private fun reloadSubcommand() = CommandBuilder
         .begin("reload")
-        .suspendHandler { command, _ ->
+        .suspendHandler {
             if (AutoConfig.reloadConfigs()) {
                 chat(regular("Reloaded ${configs?.size} settings info from API"))
             } else {
@@ -77,7 +79,7 @@ object CommandConfig : CommandFactory {
 
     private fun listSubcommand() = CommandBuilder
         .begin("list")
-        .handler { command, _ ->
+        .handler {
             runCatching {
                 chat(regular(command.result("loading")))
                 val widthOfSpace = mc.textRenderer.getWidth(" ")
@@ -88,7 +90,7 @@ object CommandConfig : CommandFactory {
                 val width = configs.maxOf { mc.textRenderer.getWidth(it.settingId) }
 
                 // In the case of the chat, we want to show the newest config at the bottom for visibility
-                configs.sortedBy { it.javaDate }.forEach {
+                configs.sortedBy { it.date }.forEach {
                     val settingName = it.settingId // there is also .name, but we use it for GUI instead
 
                     // Append spaces to the setting name to align the date and status
@@ -141,31 +143,34 @@ object CommandConfig : CommandFactory {
             ParameterBuilder
                 .begin<String>("name")
                 .verifiedBy(ParameterBuilder.STRING_VALIDATOR)
-                .autocompletedWith { begin, _ -> this.autocompleteConfigs(begin) }
+                .autocompletedFrom { configs?.map { it.settingId } }
                 .required()
                 .build()
         )
         .parameter(
-            Parameters.modules()
+            ParameterBuilder.modules()
                 .optional()
                 .build()
         )
-        .suspendHandler { command, args ->
+        .suspendHandler {
             val name = args[0] as String
             val modules = args.getOrNull(1) as Set<ClientModule>? ?: emptySet()
 
             runCatching {
-                if (name.startsWith("http")) {
-                    // Load the config from the specified URL
-                    HttpClient.request(name, HttpMethod.GET).parse<Reader>()
-                } else {
-                    // Get online config from API
-                    ClientApi.requestSettingsScript(name)
+                withContext(Dispatchers.IO) {
+                    // Read full response to prevent blocking of Reader
+                    if (name.startsWith("http")) {
+                        // Load the config from the specified URL
+                        HttpClient.request(name, HttpMethod.GET).parse<String>()
+                    } else {
+                        // Get online config from API
+                        ClientApi.requestSettingsScript(name).use { it.readText() }
+                    }
                 }
-            }.onSuccess { sourceReader ->
+            }.onSuccess { source ->
                 AutoConfig.withLoading {
                     runCatching {
-                        AutoConfig.loadAutoConfig(sourceReader, modules)
+                        AutoConfig.loadAutoConfig(CharSequenceReader(source), modules)
                     }.onFailure {
                         chat(markAsError(command.result("failedToLoad", variable(name))))
                     }.onSuccess {
@@ -174,12 +179,9 @@ object CommandConfig : CommandFactory {
                 }
             }.onFailure { exception ->
                 chat(markAsError(command.result("failedToLoad", variable(name))))
+                logger.error("Failed to load config $name", exception)
             }
         }
         .build()
-
-    private fun autocompleteConfigs(begin: String): List<String> {
-        return configs?.map { it.settingId }?.filter { it.startsWith(begin, true) } ?: emptyList()
-    }
 
 }

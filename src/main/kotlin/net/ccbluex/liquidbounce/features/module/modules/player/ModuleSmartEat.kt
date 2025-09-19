@@ -18,7 +18,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.player
 
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.KeybindIsPressedEvent
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.events.PlayerInteractedItemEvent
@@ -33,17 +33,15 @@ import net.ccbluex.liquidbounce.utils.combat.CombatManager
 import net.ccbluex.liquidbounce.utils.inventory.Slots
 import net.ccbluex.liquidbounce.utils.item.foodComponent
 import net.ccbluex.liquidbounce.utils.item.getPotionEffects
+import net.ccbluex.liquidbounce.utils.item.isMiningTool
 import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
-import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.render.RenderLayer
 import net.minecraft.entity.effect.StatusEffects
 import net.minecraft.item.ItemStack
 import net.minecraft.item.Items
-import net.minecraft.item.MiningToolItem
 import net.minecraft.item.consume.UseAction
 import net.minecraft.util.ActionResult
 import net.minecraft.util.Identifier
-import kotlin.math.absoluteValue
 
 /**
  * SmartEat module
@@ -71,13 +69,13 @@ object ModuleSmartEat : ClientModule("SmartEat", Category.PLAYER) {
             compareByDescending { it.second.healthThreshold },
             compareBy { it.second.restoredHunger },
             // Use the closest slot
-            compareByDescending { (it.first.hotbarSlot - SilentHotbar.serversideSlot).absoluteValue },
+            Comparator.comparing({ it.first }, HotbarItemSlot.PREFER_NEARBY),
             // Just for stabilization reasons
             compareBy { SilentHotbar.serversideSlot }
         )
 
         fun findBestFood(): HotbarItemSlot? {
-            return Slots.Hotbar
+            return Slots.OffhandWithHotbar
                 .mapNotNull { slot -> getFoodEstimationData(slot.itemStack)?.let { slot to it } }
                 .maxWithOrNull(comparator)?.first
         }
@@ -137,10 +135,10 @@ object ModuleSmartEat : ClientModule("SmartEat", Category.PLAYER) {
 
 
             @Suppress("unused")
-            private val renderHandler = handler<OverlayRenderEvent> {
+            private val renderHandler = handler<OverlayRenderEvent> { event ->
                 renderEnvironmentForGUI {
                     val currentFood = Estimator.findBestFood() ?: return@renderEnvironmentForGUI
-                    val dc = DrawContext(mc, mc.bufferBuilders.entityVertexConsumers)
+                    val dc = event.context
                     val scaledWidth = dc.scaledWindowWidth
                     val scaledHeight = dc.scaledWindowHeight
                     val i = scaledWidth / 2
@@ -195,7 +193,7 @@ object ModuleSmartEat : ClientModule("SmartEat", Category.PLAYER) {
             }
 
             // Only use silent offhand if we have tools in hand.
-            if (player.mainHandStack.item !is MiningToolItem) {
+            if (!player.mainHandStack.isMiningTool) {
                 return@handler
             }
 

@@ -21,22 +21,23 @@
 
 package net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game
 
-import net.ccbluex.jmcomicfix.features.module.modules.render.ModuleKillEffects
 import net.ccbluex.liquidbounce.config.gson.interopGson
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSwordBlock.hideShieldSlot
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSwordBlock.shouldHideOffhand
 import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.ModuleNameProtect
 import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.sanitizeForeignInput
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
-import net.ccbluex.liquidbounce.utils.session.GameWins
 import net.ccbluex.liquidbounce.utils.client.interaction
 import net.ccbluex.liquidbounce.utils.client.mc
-import net.ccbluex.liquidbounce.utils.client.player
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
 import net.ccbluex.liquidbounce.utils.entity.netherPosition
 import net.ccbluex.liquidbounce.utils.entity.ping
+import net.ccbluex.liquidbounce.utils.session.GameWins
 import net.ccbluex.liquidbounce.utils.session.KilledTarget
+import net.ccbluex.liquidbounce.utils.session.PlayTimeTracker
+import net.ccbluex.liquidbounce.utils.session.PlayerDeadEventListener
 import net.ccbluex.netty.http.model.RequestObject
+import net.ccbluex.netty.http.util.httpNoContent
 import net.ccbluex.netty.http.util.httpOk
 import net.minecraft.entity.effect.StatusEffectInstance
 import net.minecraft.entity.player.PlayerEntity
@@ -54,18 +55,19 @@ import net.minecraft.util.math.Vec3d
 import net.minecraft.world.GameMode
 import kotlin.math.min
 
+private fun nullableResponse(item: Any?) = item?.let { httpOk(interopGson.toJsonTree(it)) } ?: httpNoContent()
+
 // GET /api/v1/client/player
 @Suppress("UNUSED_PARAMETER")
-fun getPlayerData(requestObject: RequestObject) = httpOk(interopGson.toJsonTree(PlayerData.fromPlayer(player)))
+fun getPlayerData(requestObject: RequestObject) = nullableResponse(mc.player?.let(PlayerData::fromPlayer))
 
 // GET /api/v1/client/player/inventory
 @Suppress("UNUSED_PARAMETER")
-fun getPlayerInventory(requestObject: RequestObject) =
-    httpOk(interopGson.toJsonTree(PlayerInventoryData.fromPlayer(player)))
+fun getPlayerInventory(requestObject: RequestObject) = nullableResponse(mc.player?.let(PlayerInventoryData::fromPlayer))
 
 // GET /api/v1/client/crosshair
 @Suppress("UNUSED_PARAMETER")
-fun getCrosshairData(requestObject: RequestObject) = httpOk(interopGson.toJsonTree(mc.crosshairTarget))
+fun getCrosshairData(requestObject: RequestObject) = nullableResponse(mc.crosshairTarget)
 
 data class PlayerData(
     val username: String,
@@ -108,18 +110,20 @@ data class PlayerData(
 
     companion object {
 
+
+        @JvmStatic
         fun fromPlayer(player: PlayerEntity) = PlayerData(
             ModuleNameProtect.replace(player.nameForScoreboard),
             player.uuidAsString,
             player.world.registryKey.value,
             player.pos,
-            player.pitch,
-            player.yaw,
+            player.yaw.fixNaN(),
+            player.pitch.fixNaN(),
             player.netherPosition,
             player.blockPos,
             player.velocity,
             player.inventory.selectedSlot,
-            if (mc.player == player) interaction.currentGameMode else GameMode.DEFAULT,
+            if (mc.player === player) interaction.currentGameMode else GameMode.DEFAULT,
             player.health.fixNaN(),
             player.getActualHealth().fixNaN(),
             player.maxHealth.fixNaN(),
@@ -131,58 +135,62 @@ data class PlayerData(
             player.experienceLevel,
             player.experienceProgress.fixNaN(),
             player.ping,
-            mc.currentServerEntry?.address ?: "jmcomicph.org",
+            mc.currentServerEntry?.address ?: "SingleWorld",
             player.statusEffects.toList(),
             player.mainHandStack,
             if (shouldHideOffhand(player = player) && hideShieldSlot) ItemStack.EMPTY else player.offHandStack,
             player.armorItems.toList(),
-            if (mc.player == player) ScoreboardData.fromScoreboard(player.scoreboard) else null,
+            if (mc.player === player) ScoreboardData.fromScoreboard(player.scoreboard) else null,
             KilledTarget.killsCount,
-            updateDeathCount(player),
+            PlayerDeadEventListener.deathCount,
             player.isDead,
             ModuleAutoBuff.isEating,
             ModuleAutoBuff.eatingStartTime,
             ModuleAutoBuff.eatingMaxDuration,
-            GameWins.localWinsCounter,
+            GameWins.victoryCount,
             PlayTimeTracker.getPlayTime(),
+        )
 
-            )
 
-        private var wasAliveLastTick = true
-        private var localPlayerDeathCounter = 0
-        private fun updateDeathCount(player: PlayerEntity): Int {
-            if (player != mc.player) return localPlayerDeathCounter
 
-            val isNowDead = player.isRemoved || !player.isAlive
-            if (wasAliveLastTick && isNowDead) {
-                localPlayerDeathCounter++
-            }
-            wasAliveLastTick = !isNowDead
-
-            return localPlayerDeathCounter
-        }
     }
-
 }
 
-data class PlayerInventoryData(
+    data class PlayerInventoryData(
     val armor: List<ItemStack>,
     val main: List<ItemStack>,
-    val crafting: List<ItemStack>
+    val crafting: List<ItemStack>,
+    val enderChest: List<ItemStack>,
+    val openChest: List<ItemStack>,
 ) {
 
     companion object {
+        @JvmStatic
         fun fromPlayer(player: PlayerEntity) = PlayerInventoryData(
             armor = player.inventory.armor.map(ItemStack::copy),
             main = player.inventory.main.map(ItemStack::copy),
-            crafting = player.playerScreenHandler.craftingInput.heldStacks.map(ItemStack::copy)
+            crafting = player.playerScreenHandler.craftingInput.heldStacks.map(ItemStack::copy),
+            enderChest = player.enderChestInventory.heldStacks.map(ItemStack::copy),
+            openChest = player.currentScreenHandler.let { handler ->
+                if (handler !== player.playerScreenHandler) {
+                    val containerSize = (handler.slots.size - 36).coerceAtLeast(0)
+                    handler.slots.subList(0, containerSize).map { it.stack.copy() }
+                } else {
+                    emptyList()
+                }
+            }
+
         )
     }
+
+    private infix fun List<ItemStack>.eq(other: List<ItemStack>) =
+        this.size == other.size && this.indices.all { ItemStack.areEqual(this[it], other[it]) }
 
     override fun hashCode(): Int {
         var result = armor.hashCode()
         result = 31 * result + main.hashCode()
         result = 31 * result + crafting.hashCode()
+        result = 31 * result + enderChest.hashCode()
         return result
     }
 
@@ -192,29 +200,8 @@ data class PlayerInventoryData(
 
         other as PlayerInventoryData
 
-        if (armor.size != other.armor.size) return false
-        if (main.size != other.main.size) return false
-        if (crafting.size != other.crafting.size) return false
-
-        for (i in armor.indices) {
-            if (!ItemStack.areEqual(armor[i], other.armor[i])) {
-                return false
-            }
-        }
-
-        for (i in main.indices) {
-            if (!ItemStack.areEqual(main[i], other.main[i])) {
-                return false
-            }
-        }
-
-        for (i in crafting.indices) {
-            if (!ItemStack.areEqual(crafting[i], other.crafting[i])) {
-                return false
-            }
-        }
-
-        return true
+        return armor eq other.armor && main eq other.main &&
+            crafting eq other.crafting && enderChest eq other.enderChest
     }
 
 }
@@ -230,8 +217,10 @@ data class ScoreboardData(val header: Text, val entries: Array<SidebarEntry?>) {
          *
          * Taken from the Minecraft source code
          */
+        @JvmStatic
         fun fromScoreboard(scoreboard: Scoreboard?): ScoreboardData? {
-            if (scoreboard == null) return null
+            scoreboard ?: return null
+            val player = mc.player ?: return null
 
             val team = scoreboard.getScoreHolderTeam(player.nameForScoreboard)
 
@@ -278,43 +267,12 @@ data class ScoreboardData(val header: Text, val entries: Array<SidebarEntry?>) {
         return true
     }
 
-
     override fun hashCode(): Int {
         var result = header.hashCode()
         result = 31 * result + entries.contentHashCode()
         return result
     }
 
-}
-
-object PlayTimeTracker {
-    private val playTimeMap = mutableMapOf<String, Long>()
-    private var lastServer: String? = null
-    private var lastUpdateTime: Long = System.currentTimeMillis()
-    private var leftoverMs: Long = 0
-
-    fun update() {
-        val address = mc.currentServerEntry?.address ?: return
-        val now = System.currentTimeMillis()
-        val deltaMs = now - lastUpdateTime + leftoverMs
-
-        if (deltaMs < 1000) {
-            leftoverMs = deltaMs
-            return
-        }
-
-        val deltaSeconds = deltaMs / 1000
-        leftoverMs = deltaMs % 1000
-
-        playTimeMap[address] = playTimeMap.getOrDefault(address, 0L) + deltaSeconds
-        lastUpdateTime = now
-        lastServer = address
-    }
-
-    fun getPlayTime(): Long {
-        val address = mc.currentServerEntry?.address ?: return 0
-        return playTimeMap[address] ?: 0
-    }
 }
 
 /**

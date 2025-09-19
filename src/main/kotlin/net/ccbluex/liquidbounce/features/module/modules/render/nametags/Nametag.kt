@@ -18,6 +18,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render.nametags
 
+import net.ccbluex.liquidbounce.features.module.modules.render.nametags.ModuleNametags.heightOffset
 import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen
@@ -26,8 +27,7 @@ import net.minecraft.entity.LivingEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.text.Text
 
-@Suppress("DataClassPrivateConstructor")
-data class Nametag private constructor(
+class Nametag private constructor(
     val entity: Entity,
     /**
      * The text to render as nametag
@@ -36,16 +36,17 @@ data class Nametag private constructor(
     /**
      * The items that should be rendered above the name tag
      */
-    val items: List<ItemStack?>
+    val items: List<ItemStack>
 ) {
 
     var position: Vec3? = null
+        private set
 
     constructor(entity: Entity) : this(entity, NametagTextFormatter(entity).format(), createItemList(entity))
 
     fun calculatePosition(tickDelta: Float) {
         val nametagPos = entity.interpolateCurrentPosition(tickDelta)
-            .add(0.0, entity.getEyeHeight(entity.pose) + 0.55, 0.0)
+            .add(0.0, entity.getEyeHeight(entity.pose) + heightOffset.toDouble(), 0.0)
 
         position = WorldToScreen.calculateScreenPos(nametagPos)
     }
@@ -56,7 +57,7 @@ data class Nametag private constructor(
          * Creates a list of items that should be rendered above the name tag. Currently, it is the item in main hand,
          * the item in off-hand (as long as it exists) and the armor items.
          */
-        private fun createItemList(entity: Entity): List<ItemStack?> {
+        private fun createItemList(entity: Entity): List<ItemStack> {
             if (entity !is LivingEntity) {
                 return emptyList()
             }

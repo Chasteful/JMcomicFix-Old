@@ -19,7 +19,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.Sequence
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
@@ -30,11 +30,12 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.criticals.ModuleC
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
+import net.ccbluex.liquidbounce.utils.item.isAxe
+import net.ccbluex.liquidbounce.utils.item.isSword
 import net.minecraft.client.option.KeyBinding
 import net.minecraft.entity.Entity
-import net.minecraft.item.AxeItem
 import net.minecraft.item.BlockItem
-import net.minecraft.item.SwordItem
+import net.minecraft.item.Items
 import net.minecraft.util.hit.BlockHitResult
 import net.minecraft.util.hit.EntityHitResult
 
@@ -48,7 +49,8 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
 
     object AttackButton : ToggleableConfigurable(this, "Attack", true) {
 
-        val clicker = tree(Clicker(this, mc.options.attackKey, true))
+        val clicker = tree(Clicker(this, mc.options.attackKey))
+
         internal val requiresNoInput by boolean("RequiresNoInput", false)
         private val objectiveType by enumChoice("Objective", ObjectiveType.ANY)
         private val onItemUse by enumChoice("OnItemUse", Use.WAIT)
@@ -88,12 +90,12 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
         }
 
         fun isWeaponSelected(): Boolean {
-            val item = player.mainHandStack.item
+            val stack = player.mainHandStack
 
             return when (weapon) {
-                Weapon.SWORD -> item is SwordItem
-                Weapon.AXE -> item is AxeItem
-                Weapon.BOTH -> item is SwordItem || item is AxeItem
+                Weapon.SWORD -> stack.isSword
+                Weapon.AXE -> stack.isAxe
+                Weapon.BOTH -> stack.isSword || stack.isAxe
                 Weapon.ANY -> true
             }
         }
@@ -145,7 +147,8 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
     }
 
     object UseButton : ToggleableConfigurable(this, "Use", false) {
-        val clicker = tree(Clicker(this, mc.options.useKey, false))
+        val clicker = tree(Clicker(this, mc.options.useKey, null))
+        internal val holdingItemsForIgnore by items("HoldingItemsForIgnore", defaultItems.toMutableSet())
         internal val delayStart by boolean("DelayStart", false)
         internal val onlyBlock by boolean("OnlyBlock", false)
         internal val requiresNoInput by boolean("RequiresNoInput", false)
@@ -153,6 +156,23 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
         internal var needToWait = true
     }
 
+    private val defaultItems = setOf(
+        Items.WATER_BUCKET,
+        Items.LAVA_BUCKET,
+        Items.ENDER_PEARL,
+        Items.ENDER_EYE,
+    )
+
+    private val specialItems  = setOf(
+        Items.RED_BED,
+        Items.PLAYER_HEAD,
+        Items.COMPASS,
+        Items.EMERALD,
+        Items.LAPIS_LAZULI,
+        Items.GREEN_DYE,
+        Items.GRAY_DYE,
+        Items.PINK_DYE,
+    )
     init {
         tree(AttackButton)
         tree(UseButton)
@@ -170,7 +190,6 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
             if (!enabled || !attack || !isWeaponSelected() || !isOnObjective()) {
                 return@run
             }
-
             // Check if the player is breaking a block, if so, return
             if (interaction.isBreakingBlock) {
                 return@run
@@ -178,7 +197,7 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
 
             val crosshairTarget = mc.crosshairTarget
             if (crosshairTarget is EntityHitResult) {
-                ModuleAutoWeapon.prepare(crosshairTarget.entity)
+                ModuleAutoWeapon.onTarget(crosshairTarget.entity)
 
                 if (!isCriticalHit(crosshairTarget.entity)) {
                     return@run
@@ -204,6 +223,14 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
 
             if (!use) {
                 needToWait = true
+                return@run
+            }
+
+            if (player.mainHandStack.item in specialItems && player.inventory.mainHandStack.customName !=null) {
+                return@run
+            }
+
+            if (player.mainHandStack.item in holdingItemsForIgnore){
                 return@run
             }
 

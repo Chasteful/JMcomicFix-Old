@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
  */
-@file:Suppress("detekt:TooManyFunctions")
+@file:Suppress("detekt:TooManyFunctions","LongParameterList")
 
 package net.ccbluex.liquidbounce.render
 
@@ -26,21 +26,21 @@ import net.ccbluex.liquidbounce.injection.mixins.minecraft.gui.MixinDrawContextA
 import net.ccbluex.liquidbounce.render.engine.font.FontRenderer
 import net.ccbluex.liquidbounce.render.engine.font.FontRendererBuffers
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.engine.type.UV2f
 import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gl.ShaderProgramKey
 import net.minecraft.client.gl.ShaderProgramKeys
+import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.render.*
 import net.minecraft.client.render.VertexFormat.DrawMode
 import net.minecraft.client.util.math.MatrixStack
-import net.minecraft.text.MutableText
-import net.minecraft.text.Text
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.Direction
 import net.minecraft.util.math.Vec3d
+import net.minecraft.util.math.Vec3i
 import org.joml.Matrix4f
 import org.lwjgl.opengl.GL11C
-import net.minecraft.client.gui.DrawContext
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 import kotlin.math.PI
@@ -105,7 +105,13 @@ class WorldRenderEnvironment(matrixStack: MatrixStack, val camera: Camera) : Ren
     override fun relativeToCamera(pos: Vec3d): Vec3d {
         return pos.subtract(camera.pos)
     }
+
+    fun relativeToCamera(pos: Vec3i): Vec3d {
+        return Vec3d(pos.x.toDouble() - camera.pos.x, pos.y.toDouble() - camera.pos.y, pos.z.toDouble() - camera.pos.z)
+    }
 }
+
+fun newDrawContext(): DrawContext = DrawContext(mc, mc.bufferBuilders.entityVertexConsumers)
 
 /**
  * Helper function to render an environment with the specified [matrixStack] and [draw] block.
@@ -170,7 +176,7 @@ inline fun RenderEnvironment.withPosition(pos: Vec3, draw: RenderEnvironment.() 
  * @param pos The position vector.
  * @param draw The block of code to be executed in the transformed environment.
  */
-inline fun RenderEnvironment.withPosition(pos: Vec3d, draw: RenderEnvironment.() -> Unit) {
+inline fun <T : RenderEnvironment> T.withPosition(pos: Vec3d, draw: T.() -> Unit) {
     with(matrixStack) {
         push()
         translate(pos.x, pos.y, pos.z)
@@ -186,6 +192,13 @@ inline fun RenderEnvironment.withPosition(pos: Vec3d, draw: RenderEnvironment.()
  * Shorthand for `withPosition(relativeToCamera(pos))`
  */
 inline fun WorldRenderEnvironment.withPositionRelativeToCamera(pos: Vec3d, draw: WorldRenderEnvironment.() -> Unit) {
+    withPosition(relativeToCamera(pos), draw)
+}
+
+/**
+ * Shortcut of `withPositionRelativeToCamera(Vec3d.of(pos))`
+ */
+inline fun WorldRenderEnvironment.withPositionRelativeToCamera(pos: Vec3i, draw: WorldRenderEnvironment.() -> Unit) {
     val relativePos = relativeToCamera(pos)
 
     with(matrixStack) {
@@ -198,6 +211,7 @@ inline fun WorldRenderEnvironment.withPositionRelativeToCamera(pos: Vec3d, draw:
         }
     }
 }
+
 
 /**
  * Disables [GL11C.GL_LINE_SMOOTH] if [HAS_AMD_VEGA_APU].
@@ -263,17 +277,6 @@ fun RenderEnvironment.drawLines(vararg lines: Vec3) {
  */
 fun RenderEnvironment.drawLineStrip(vararg positions: Vec3) {
     drawLines(positions, mode = DrawMode.DEBUG_LINE_STRIP)
-}
-
-fun gradientText(text: String, startColor: Color4b, endColor: Color4b): MutableText {
-    return text.foldIndexed(Text.empty()) { index, newText, char ->
-        val factor = if (text.length > 1) index / (text.length - 1.0) else 0.0
-        val color = startColor.interpolateTo(endColor, factor)
-
-        newText.append(
-            Text.literal(char.toString()).withColor(color.toARGB())
-        )
-    }
 }
 
 fun RenderEnvironment.drawLineStrip(positions: List<Vec3>) {
@@ -367,6 +370,39 @@ inline fun RenderEnvironment.drawCustomMesh(
 
         // Draw the custom mesh
         BufferRenderer.drawWithGlobalProgram(buffer.endNullable() ?: return)
+    }
+}
+fun RenderBufferBuilder<VertexInputType.PosTexColor>.drawGradientQuad(
+    env: RenderEnvironment,
+    pos1: Vec3d,
+    uv1: UV2f,
+    pos2: Vec3d,
+    uv2: UV2f,
+    pos3: Vec3d,
+    uv3: UV2f,
+    pos4: Vec3d,
+    uv4: UV2f,
+    color1: Color4b,
+    color2: Color4b,
+    color3: Color4b,
+    color4: Color4b
+) {
+    val matrix = env.currentMvpMatrix
+
+    // Draw the vertices of the quad with per-vertex colors
+    with(buffer) {
+        vertex(matrix, pos1.x.toFloat(), pos1.y.toFloat(), pos1.z.toFloat())
+            .texture(uv1.u, uv1.v)
+            .color(color1.toARGB())
+        vertex(matrix, pos2.x.toFloat(), pos2.y.toFloat(), pos2.z.toFloat())
+            .texture(uv2.u, uv2.v)
+            .color(color2.toARGB())
+        vertex(matrix, pos3.x.toFloat(), pos3.y.toFloat(), pos3.z.toFloat())
+            .texture(uv3.u, uv3.v)
+            .color(color3.toARGB())
+        vertex(matrix, pos4.x.toFloat(), pos4.y.toFloat(), pos4.z.toFloat())
+            .texture(uv4.u, uv4.v)
+            .color(color4.toARGB())
     }
 }
 
@@ -488,7 +524,7 @@ fun RenderEnvironment.drawSideBox(box: Box, side: Direction, onlyOutline: Boolea
     }
 }
 
-fun RenderEnvironment.drawBoxSide(box: Box, side: Direction, face: Color4b, outline: Color4b) {
+fun RenderEnvironment.drawBoxSide(box: Box, side: Direction, face: Color4b, outline: Color4b){
     val matrix = matrixStack.peek().positionMatrix
     val tessellator = RenderSystem.renderThreadTesselator()
 

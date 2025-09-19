@@ -18,7 +18,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.MouseScrollInHotbarEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -38,7 +38,8 @@ import kotlin.math.round
  *
  * The mouse is slowed down with the help of mixins in [MixinMouse].
  */
-object ModuleZoom : ClientModule("Zoom", Category.RENDER, bindAction = InputBind.BindAction.HOLD) {
+object ModuleZoom : ClientModule("Zoom", Category.RENDER,
+    bindAction = InputBind.BindAction.HOLD, disableOnQuit = true) {
 
     val zoom by int("Zoom", 30, 10..150)
 
@@ -60,7 +61,7 @@ object ModuleZoom : ClientModule("Zoom", Category.RENDER, bindAction = InputBind
         tree(Scroll)
     }
 
-    private val transition by curve("Transition", Easing.QUAD_IN)
+    private val transition by easing("Transition", Easing.QUAD_IN)
     private val durationFactor by float("DurationFactor", 2f, 0f..10f, "x")
 
     private val chronometer = Chronometer()
@@ -69,13 +70,13 @@ object ModuleZoom : ClientModule("Zoom", Category.RENDER, bindAction = InputBind
     private var scaledDifference = 0.0
     private var disableAnimationFinished = true
 
-    override fun enable() {
+    override fun onEnabled() {
         targetFov = zoom
         previousFov = getDefaultFov()
         reset()
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         previousFov = getFov(true)
         chronometer.reset()
         targetFov = getDefaultFov()

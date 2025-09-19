@@ -1,6 +1,5 @@
-import {type Writable, writable} from "svelte/store";
+import {derived, type Writable, writable} from "svelte/store";
 import type {Module} from "../../integration/types";
-
 
 export interface TDescription {
     description: string;
@@ -17,6 +16,7 @@ interface PanelConfig {
     zIndex: number;
 }
 
+export const os: Writable<string | null> = writable<string | null>(null);
 export const locked = writable(false);
 export const description: Writable<TDescription | null> = writable(null);
 export const panelId: Writable<string | null> = writable(null);
@@ -28,13 +28,19 @@ export const scaleFactor: Writable<number> = writable(2);
 export const panelLength: Writable<number> = writable(66);
 export const fontSize: Writable<number> = writable(14);
 export const showGrid: Writable<boolean> = writable(false);
-
+export const moduleAutoCollapse: Writable<boolean> = writable(false);
 export const snappingEnabled: Writable<boolean> = writable(true);
-
+export const moduleDescription: Writable<boolean> = writable(true);
 export const gridSize: Writable<number> = writable(10);
 
 export const showResults = writable<boolean>(false);
-
-export const filteredModules = writable<Module[]>([]);
+export const filteredModules: Writable<Module[]> = writable([]);
 
 export const showSearch = writable(false);
+export const effectiveFilteredModules = derived(
+    [filteredModules, query, showSearch],
+    ([$filteredModules, $query, $showSearch]) => {
+        if (!$showSearch || !$query.trim()) return [];
+        return $filteredModules;
+    }
+);

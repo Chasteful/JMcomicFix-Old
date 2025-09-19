@@ -1,6 +1,10 @@
 <script lang="ts">
     import {listen} from "../../../../integration/ws";
-    import type {ClientPlayerDataEvent, PlayerInventory, PlayerInventoryEvent} from "../../../../integration/events";
+    import type {
+        ClientPlayerDataEvent,
+        PlayerInventory,
+        ClientPlayerInventoryEvent
+    } from "../../../../integration/events";
     import type {PlayerData, ItemStack} from "../../../../integration/types";
     import {onMount} from "svelte";
     import {getPlayerInventory, getPlayerData} from "../../../../integration/rest";
@@ -9,7 +13,14 @@
     import {armorDurabilityStore, totemCount} from '../island/Island';
     import {get} from 'svelte/store';
     import ArmorItem from "../../common/ItemView/ArmorItem.svelte";
-    import Line from "../../common/Line.svelte";
+    import Line from "../../common/Trims/Line.svelte";
+
+
+    export let settings: { [name: string]: any };
+
+    export let armorSlots: ItemStack[] = Array(4).fill(0).map(() => createEmptySlot());
+
+    let offHandSlots: ItemStack[] = [createEmptySlot()];
 
     function createEmptySlot(): ItemStack {
         return {
@@ -22,11 +33,6 @@
             hasDyedColor: false
         };
     }
-
-    export let armorSlots: ItemStack[] = Array(4).fill(0).map(() => createEmptySlot());
-
-    let offHandSlots: ItemStack[] = [createEmptySlot()];
-
 
     function countTotems(inventory: PlayerInventory, offHand: ItemStack[]): number {
         let total = 0;
@@ -99,7 +105,7 @@
         return stack.identifier !== "minecraft:air" && stack.count > 0;
     }
 
-    listen("clientPlayerInventory", (event: PlayerInventoryEvent) => {
+    listen("clientPlayerInventory", (event: ClientPlayerInventoryEvent) => {
         updateInventory(event.inventory);
 
     });
@@ -119,14 +125,17 @@
 
 
 </script>
-<div class="armoritems-hud hud-container" id="armoritemshud" transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
+<div class="armoritems-hud hud-container" id="armoritemshud"
+     transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
     <div class="inventory-hud"></div>
 
     <div class="title">
         <img alt="armor" class="icon" src="img/hud/inventory/armor.svg"/>
         <span>ArmorItems</span>
     </div>
-    <Line/>
+    {#if settings?.divider}
+        <Line gradient={settings?.gradient}/>
+    {/if}
     <div class="armor-items">
         {#each [...armorSlots].reverse() as stack (stack)}
             {#if shouldShowSlot(stack)}
@@ -149,7 +158,7 @@
 </div>
 
 <style lang="scss">
-  @import "../../../../colors";
+  @use "../../../../colors" as *;
 
   .hidden {
     display: none;

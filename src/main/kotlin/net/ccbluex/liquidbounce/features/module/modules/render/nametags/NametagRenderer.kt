@@ -19,20 +19,22 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.nametags
 
 import com.mojang.blaze3d.systems.RenderSystem
+import kotlin.math.hypot
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.font.FontRendererBuffers
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.utils.client.mc
-import net.minecraft.client.gui.DrawContext
+import net.ccbluex.liquidbounce.utils.render.WorldToScreen
 import net.minecraft.client.render.VertexFormat
+import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.item.ItemStack
+import net.minecraft.util.math.Vec3d
 import org.lwjgl.opengl.GL11
 
 private const val NAMETAG_PADDING: Int = 5
 private const val ITEM_SIZE: Int = 20
-private const val ITEM_SCALE: Float = 1.0F
 
 @Suppress("MagicNumber")
 class NametagRenderer {
@@ -50,11 +52,43 @@ class NametagRenderer {
             RenderBufferBuilder.TESSELATOR_B,
         )
 
+    private val dc = newDrawContext()
+
     private val fontBuffers = FontRendererBuffers()
 
-    fun drawNametag(env: RenderEnvironment, nametag: Nametag, pos: Vec3) = with(env) {
+    fun getNametagScale(
+        nametag: Entity,
+        scaleMode: ModuleNametags.Mode,
+        baseScale: Float = 1.0f
+    ): Float {
         val fontSize = FontManager.DEFAULT_FONT_SIZE
-        val scale = 1f / (fontSize * 0.15f) * ModuleNametags.scale
+
+        val worldOffset = 0.5f
+        val pos = nametag.pos
+        val above = Vec3d(pos.x, pos.y + worldOffset, pos.z)
+
+        val s1 = WorldToScreen.calculateScreenPos(pos) ?: return 0f
+        val s2 = WorldToScreen.calculateScreenPos(above) ?: return 0f
+
+        val pixelDist = hypot((s2.x - s1.x).toDouble(), (s2.y - s1.y).toDouble()).toFloat()
+        if (pixelDist <= 0f) return 0f
+
+        val ppu = pixelDist / worldOffset
+
+        val scale = (((ppu / fontSize) * baseScale) / 4).coerceAtMost(1f)
+
+        return when (scaleMode) {
+            ModuleNametags.Mode.EQUAL -> 1f / (fontSize * 0.15f) * baseScale
+            ModuleNametags.Mode.PIXEL_UNIT_SCALE -> {
+                scale
+            }
+        }
+    }
+
+
+    fun RenderEnvironment.drawNametag(nametag: Nametag, pos: Vec3) {
+        val fontSize = FontManager.DEFAULT_FONT_SIZE
+        val scale = getNametagScale(nametag.entity, ModuleNametags.scaleMode, ModuleNametags.scale)
 
         matrixStack.push()
         matrixStack.translate(pos.x, pos.y, pos.z)
@@ -65,37 +99,39 @@ class NametagRenderer {
                 ModuleNametags.fontRenderer.process(nametag.text),
                 0f,
                 0f,
-                shadow = true,
+                shadow = NametagShowOptions.TEXT_SHADOW.isShowing(),
                 z = 0.001f,
             )
 
         // Make the model view matrix center the text when rendering
         matrixStack.translate(-x * 0.5f, -ModuleNametags.fontRenderer.height * 0.5f, 0f)
 
-        ModuleNametags.fontRenderer.commit(env, fontBuffers)
+        ModuleNametags.fontRenderer.commit(this@drawNametag, fontBuffers)
 
         val q1 = Vec3(-0.1f * fontSize, ModuleNametags.fontRenderer.height * -0.1f, 0f)
         val q2 = Vec3(x + 0.2f * fontSize, ModuleNametags.fontRenderer.height * 1.1f, 0f)
-
-        // Only draw background if BACKGROUND option is showing
         if (NametagShowOptions.BACKGROUND.isShowing()) {
-            quadBuffers.drawQuad(env, q1, q2)
+            quadBuffers.drawQuad(this@drawNametag, q1, q2)
         }
-
         if (NametagShowOptions.BORDER.isShowing()) {
-            lineBuffers.drawQuadOutlines(env, q1, q2)
+            lineBuffers.drawQuadOutlines(this@drawNametag, q1, q2)
         }
 
         if (NametagShowOptions.ITEMS.isShowing()) {
-            drawItemList(pos, nametag.items)
+            drawItemList(nametag, pos, nametag.items, x)
         }
+
         // Draw enchantments directly for the entity (regardless of whether items are shown)
         if (NametagShowOptions.ENCHANTMENTS.isShowing() && nametag.entity is LivingEntity) {
+            val entityPos = nametag.entity.pos
+            val worldX = entityPos.x.toFloat()
+            val worldY = (entityPos.y + nametag.entity.height + 0.5f).toFloat()
+
             NametagEnchantmentRenderer.drawEntityEnchantments(
-                env,
+                this@drawNametag,
                 nametag.entity,
-                pos.x,
-                pos.y,
+                worldX,
+                worldY,
                 fontBuffers
             )
         }
@@ -103,17 +139,25 @@ class NametagRenderer {
         matrixStack.pop()
     }
 
-    private fun drawItemList(pos: Vec3, itemsToRender: List<ItemStack?>) {
-        val dc = DrawContext(mc, mc.bufferBuilders.entityVertexConsumers)
-
+    private fun drawItemList(nametag: Nametag, pos: Vec3, itemsToRender: List<ItemStack>, textWidth: Float) {
+        dc.matrices.push()
         dc.matrices.translate(pos.x, pos.y - NAMETAG_PADDING, pos.z)
-        dc.matrices.scale(ITEM_SCALE * ModuleNametags.scale, ITEM_SCALE * ModuleNametags.scale, 1.0F)
-        dc.matrices.translate(-itemsToRender.size * ITEM_SIZE / 2.0F, -ITEM_SIZE.toFloat(), 0.0F)
+
+        val fontSize = FontManager.DEFAULT_FONT_SIZE
+        val scale = getNametagScale(
+            nametag.entity,
+            ModuleNametags.scaleMode,
+            ModuleNametags.scale
+        )
+        dc.matrices.scale(scale, scale, 1.0F)
+
+        val backgroundWidth = textWidth + 0.3f * fontSize
+        dc.matrices.translate(-backgroundWidth * 0.5f, -ITEM_SIZE.toFloat()- 100, 0.0F)
 
         dc.fill(
             0,
             0,
-            itemsToRender.size * ITEM_SIZE,
+            (backgroundWidth * fontSize / FontManager.DEFAULT_FONT_SIZE).toInt(),
             ITEM_SIZE,
             Color4b.BLACK.with(a = 0).toARGB()
         )
@@ -121,15 +165,24 @@ class NametagRenderer {
         dc.matrices.translate(0.0F, 0.0F, 100.0F)
 
         val itemInfo = NametagShowOptions.ITEM_INFO.isShowing()
-        itemsToRender.forEachIndexed { index, itemStack ->
-            itemStack ?: return@forEachIndexed
+        val itemCount = itemsToRender.size
+        val itemSpacing = if (itemCount > 1) backgroundWidth / (itemCount - 1) else 0f
 
-            val x = index * ITEM_SIZE
-            dc.drawItem(itemStack, x, 0)
+        itemsToRender.forEachIndexed { index, itemStack ->
+            if (itemStack.isEmpty) return@forEachIndexed
+
+            val x = if (itemCount == 1) backgroundWidth / 2 - ITEM_SIZE / 2 else index * itemSpacing
+
+            dc.matrices.push()
+            dc.matrices.translate(x, 0.0F, 0.0F)
+            dc.matrices.scale(1f / scale, 1f / scale, 1f);
+            dc.drawItem(itemStack, 0, 0)
             if (itemInfo) {
-                dc.drawStackOverlay(mc.textRenderer, itemStack, x, 0)
+                dc.drawStackOverlay(mc.textRenderer, itemStack, 0, 0)
             }
+            dc.matrices.pop()
         }
+        dc.matrices.pop()
     }
 
     fun commit(env: RenderEnvironment) {
@@ -137,7 +190,12 @@ class NametagRenderer {
         GL11.glEnable(GL11.GL_DEPTH_TEST)
 
         RenderSystem.enableBlend()
-        RenderSystem.defaultBlendFunc()
+        RenderSystem.blendFuncSeparate(
+            GL11.GL_SRC_ALPHA,
+            GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GL11.GL_ONE,
+            GL11.GL_ZERO
+        )
 
         env.withColor(Color4b(0, 0, 0, 120)) {
             quadBuffers.draw()
@@ -149,5 +207,4 @@ class NametagRenderer {
             fontBuffers.draw()
         }
     }
-
 }

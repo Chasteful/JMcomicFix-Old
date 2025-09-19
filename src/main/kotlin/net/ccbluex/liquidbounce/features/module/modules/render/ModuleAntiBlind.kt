@@ -21,6 +21,8 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.minecraft.item.Items
+import net.minecraft.util.Identifier
 
 /**
  * AntiBlind module
@@ -29,8 +31,14 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
  */
 @Suppress("MagicNumber")
 object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = arrayOf("NoRender")) {
-    private val render = multiEnumChoice(
-        "DoRender",
+    /**
+     * @see Items.CARVED_PUMPKIN
+     * @see net.minecraft.client.gui.hud.InGameHud.renderMiscOverlays
+     */
+    @JvmField
+    val TEXTURE_PUMPKIN_BLUR: Identifier = Identifier.ofVanilla("textures/misc/pumpkinblur.png")
+
+    private val render = multiEnumChoice("DoRender",
         DoRender.ARMOR,
         DoRender.MOB_IN_SPAWNER,
         DoRender.CAPE,
@@ -50,6 +58,7 @@ object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = ar
         DoRender.INVISIBLE_ENTITIES,
         DoRender.BOSS_BARS,
         DoRender.EXPLOSION_PARTICLES,
+        DoRender.WORLD_BORDER,
     ).also { tagBy(it) }
 
     private val fireOpacity by int("FireOpacity", 100, 0..100, suffix = "%")
@@ -57,13 +66,12 @@ object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = ar
     @JvmStatic
     fun canRender(choice: DoRender) = !running || choice in render
 
-    val fireOpacityPercentage
-        get() =
-            if (running) {
-                fireOpacity / 100.0f
-            } else {
-                1.0f
-            }
+    val fireOpacityPercentage get() =
+        if (running) {
+            fireOpacity / 100.0f
+        } else {
+            1.0f
+        }
 }
 
 enum class DoRender(override val choiceName: String) : NamedChoice {
@@ -94,5 +102,6 @@ enum class DoRender(override val choiceName: String) : NamedChoice {
     SIGN_TEXT("SignText"),
     INVISIBLE_ENTITIES("InvisibleEntities"),
     BOSS_BARS("BossBars"),
-    EXPLOSION_PARTICLES("ExplosionParticles")
+    EXPLOSION_PARTICLES("ExplosionParticles"),
+    WORLD_BORDER("WorldBorder"),
 }

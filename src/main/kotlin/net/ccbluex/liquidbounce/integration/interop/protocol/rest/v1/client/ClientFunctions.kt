@@ -21,17 +21,20 @@ package net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client
 
 import com.google.gson.JsonObject
 import io.netty.handler.codec.http.FullHttpResponse
+import net.ccbluex.liquidbounce.features.module.modules.`fun`.ModuleFPSBoost
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.api.services.client.ClientUpdate.update
+import net.ccbluex.jmcomicfix.api.services.client.ClientUpdate.release
+import net.ccbluex.liquidbounce.config.ConfigSystem
+import net.ccbluex.liquidbounce.config.types.FileDialogMode
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.client.usesViaFabricPlus
 import net.ccbluex.netty.http.model.RequestObject
-import net.ccbluex.netty.http.util.httpForbidden
-import net.ccbluex.netty.http.util.httpOk
+import net.ccbluex.netty.http.util.*
 import net.minecraft.util.Util
+import java.io.File
 import java.net.URI
-import java.text.SimpleDateFormat
 import java.util.*
 
 // GET /api/v1/client/info
@@ -41,11 +44,28 @@ fun getClientInfo(requestObject: RequestObject) = httpOk(JsonObject().apply {
     addProperty("clientVersion", LiquidBounce.clientVersion)
     addProperty("clientName", LiquidBounce.CLIENT_NAME)
     addProperty("development", LiquidBounce.IN_DEVELOPMENT)
-    addProperty("fps", mc.currentFps)
+    addProperty("fps", ModuleFPSBoost.running.let {
+        if (it) ModuleFPSBoost.getModifiedFPS(mc.currentFps) else mc.currentFps
+    })
     addProperty("gameDir", mc.runDirectory.path)
+    addProperty("clientDir", ConfigSystem.rootFolder.path)
     addProperty("inGame", inGame)
     addProperty("viaFabricPlus", usesViaFabricPlus)
     addProperty("hasProtocolHack", usesViaFabricPlus)
+})
+
+// GET /api/v1/client/release
+@Suppress("UNUSED_PARAMETER")
+fun getRelease(requestObject: RequestObject) = httpOk(JsonObject().apply {
+    val releaseInfo = net.ccbluex.jmcomicfix.api.services.client.ClientApi.getLatestRelease()
+    if (releaseInfo != null) {
+        addProperty("tagName", releaseInfo.tagName)
+        addProperty("downloadUrl", releaseInfo.downloadUrl)
+        addProperty("publishedAt", releaseInfo.publishedAt.toString())
+        addProperty("prerelease", releaseInfo.prerelease)
+    } else {
+        addProperty("error", "No release info available")
+    }
 })
 
 // GET /api/v1/client/update
@@ -63,8 +83,7 @@ fun getUpdateInfo(requestObject: RequestObject) = httpOk(JsonObject().apply {
         addProperty("minecraftVersion", updateInfo.mcVersion)
         addProperty("release", updateInfo.release)
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(updateInfo.date)
-        addProperty("date", SimpleDateFormat().format(dateFormat))
+        addProperty("date", updateInfo.date.toString())
         addProperty("message", updateInfo.message)
 
         addProperty("url", updateInfo.url)
@@ -75,7 +94,7 @@ fun getUpdateInfo(requestObject: RequestObject) = httpOk(JsonObject().apply {
 @Suppress("UNUSED_PARAMETER")
 fun postExit(requestObject: RequestObject): FullHttpResponse {
     mc.scheduleStop()
-    return httpOk(JsonObject())
+    return httpNoContent()
 }
 
 // GET /api/v1/client/window
@@ -97,7 +116,46 @@ fun postBrowse(requestObject: RequestObject): FullHttpResponse {
     val url = POSSIBLE_URL_TARGETS[target] ?: return httpForbidden("Unknown target")
 
     Util.getOperatingSystem().open(url)
-    return httpOk(JsonObject())
+    return httpNoContent()
+}
+
+// POST /api/v1/client/browsePath
+@Suppress("ReturnCount")
+fun postBrowsePath(requestObject: RequestObject): FullHttpResponse {
+    val jsonObj = requestObject.asJson<JsonObject>()
+    val path = jsonObj["path"]?.asString ?: return httpBadRequest("No file specified")
+
+    val file = File(path).let { file ->
+        if (file.isAbsolute) file else ConfigSystem.rootFolder.resolve(file)
+    }
+
+    if (!file.exists()) {
+        return httpNotFound(path, "File not exists")
+    }
+
+    // Ensures we open a directory, not a file
+    val directoryToOpen = when {
+        file.isDirectory -> file
+        file.isFile -> file.parentFile ?: return httpForbidden("Cannot access root directory")
+        else -> return httpForbidden("Invalid file type")
+    }
+
+    Util.getOperatingSystem().open(directoryToOpen)
+    return httpNoContent()
+}
+
+// POST /api/v1/client/fileDialog
+fun postFileDialog(requestObject: RequestObject): FullHttpResponse {
+    data class RequestBody(val mode: FileDialogMode, val supportedExtensions: List<String>? = null)
+    val (mode, supportedExtensions) = runCatching {
+        requestObject.asJson<RequestBody>()
+    }.getOrNull() ?: return httpBadRequest("No dialog mode provided")
+
+    val files = mode.selectFiles(supportedExtensions)
+
+    return httpOk(JsonObject().apply {
+        files.firstOrNull()?.let { addProperty("file", it) }
+    })
 }
 
 private val POSSIBLE_URL_TARGETS: Map<String, URI> = run {

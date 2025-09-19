@@ -18,13 +18,15 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.player.nofall.modes
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.features.module.modules.player.ModuleAutoStuck
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.ModuleNoFall
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.utils.raycast
@@ -44,6 +46,8 @@ import net.minecraft.item.Items
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 
+// TODO: Bypass Vanilla Minecraft Item UseOnBlocks Limit
+
 internal object NoFallMLG : Choice("MLG") {
     override val parent: ChoiceConfigurable<*>
         get() = ModuleNoFall.modes
@@ -54,16 +58,16 @@ internal object NoFallMLG : Choice("MLG") {
         /**
          * Don't pick up before the lower bound, don't pick up after the upper bound
          */
-        val pickupSpan by intRange("PickupSpan", 200..1000, 0..10000, "ms")
+        val pickupSpan by intRange("PickupSpan", 150..250, 0..10000, "ms")
     }
-
+    private val onlyWeb by boolean("OnlyWeb", false)
     private val rotationsConfigurable = tree(RotationsConfigurable(this))
 
     private var currentTarget: PlacementPlan? = null
-    private var lastPlacements = mutableListOf<Pair<BlockPos, Chronometer>>()
+    private val lastPlacements = mutableListOf<Pair<BlockPos, Chronometer>>()
 
     private val netherItems =
-        arrayOf(
+        setOf(
             // overworld
             Items.COBWEB,
             Items.POWDER_SNOW_BUCKET,
@@ -73,7 +77,7 @@ internal object NoFallMLG : Choice("MLG") {
             // nether
             Items.TWISTING_VINES,
         )
-    private val normalItems = arrayOf(Items.WATER_BUCKET) + netherItems
+    private val normalItems = netherItems + Items.WATER_BUCKET
 
     private val itemsForMLG
         get() = if (world.dimension.ultrawarm) netherItems else normalItems
@@ -92,6 +96,9 @@ internal object NoFallMLG : Choice("MLG") {
             if (currentGoal == null) {
                 return@handler
             }
+            val isPickup = lastPlacements.any { it.first == currentGoal.targetPos }
+            debugParameter(this, "tickMovementHandler.isPickup", isPickup)
+
 
             RotationManager.setRotationTarget(
                 currentGoal.placementTarget.rotation,
@@ -104,19 +111,20 @@ internal object NoFallMLG : Choice("MLG") {
     @Suppress("unused")
     private val tickHandler =
         tickHandler {
+            if (ModuleAutoStuck.shouldActivate) return@tickHandler
+
             val target = currentTarget ?: return@tickHandler
 
             val rayTraceResult = raycast()
-
-            if (!target.doesCorrespondTo(rayTraceResult)) {
-                return@tickHandler
-            }
-
+//            debugParameter(
+//                this,
+//                "tickHandler.rayTraceResult",
+//                "hitPos=${rayTraceResult.blockPos}, side=${rayTraceResult.side}, type=${rayTraceResult.type}"
+//            )
             SilentHotbar.selectSlotSilently(this, target.hotbarItemSlot, 1)
 
             val onSuccess: () -> Boolean = {
-                lastPlacements.add(target.targetPos to Chronometer().also { it.reset() })
-
+                lastPlacements.add(target.targetPos to Chronometer(System.currentTimeMillis()))
                 true
             }
 
@@ -151,7 +159,7 @@ internal object NoFallMLG : Choice("MLG") {
      * Finds a position to pickup placed water from
      */
     private fun getCurrentPickupTarget(): PlacementPlan? {
-        val bestPickupItem = Slots.Hotbar.findClosestSlot(Items.BUCKET) ?: return null
+        val bestPickupItem = Slots.OffhandWithHotbar.findClosestSlot(Items.BUCKET) ?: return null
 
         // Remove all time outed/invalid pickup targets from the list
         this.lastPlacements.removeIf {
@@ -177,7 +185,9 @@ internal object NoFallMLG : Choice("MLG") {
      * Find a way to prevent fall damage if we are falling.
      */
     private fun getCurrentMLGPlacementPlan(): PlacementPlan? {
-        val itemForMLG = Slots.OffhandWithHotbar.findClosestSlot(items = itemsForMLG)
+        val itemForMLG = Slots.OffhandWithHotbar.findClosestSlot {
+            if (onlyWeb) it.item == Items.COBWEB else it.item in itemsForMLG
+        }
 
         if (player.fallDistance <= minFallDist || itemForMLG == null) {
             return null

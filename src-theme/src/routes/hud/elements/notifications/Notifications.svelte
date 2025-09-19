@@ -18,18 +18,19 @@
     }
 
     let notifications: TNotification[] = [];
-    const error = new Howl({src: ['audio/notifications/error.mp3'], preload: true});
-    const info = new Howl({src: ['audio/notifications/info.mp3'], preload: true});
+    const error = new Howl({src: ['audio/notifications/error.ogg'], preload: true});
+    const info = new Howl({src: ['audio/notifications/info.ogg'], preload: true});
     const success = new Howl({src: ['audio/notifications/success.ogg'], preload: true});
     const disable = new Howl({src: ['audio/notifications/disable.ogg'], preload: true, volume: 0.5});
     const enable = new Howl({src: ['audio/notifications/enable.ogg'], preload: true, volume: 0.5});
-    const blink = new Howl({src: ['audio/notifications/blink.wav'], preload: true})
-    const blinked = new Howl({src: ['audio/notifications/blinked.wav'], preload: true})
+    const blink = new Howl({src: ['audio/notifications/blink.ogg'], preload: true})
+    const blinked = new Howl({src: ['audio/notifications/blinked.ogg'], preload: true})
 
     function addNotification(title: string, message: string, severity: string) {
         const animationKey = Date.now();
         let id = animationKey;
 
+        // Handle Blink notifications merging
         if (message.startsWith("Currently storing")) {
             const existingIndex = notifications.findIndex(n =>
                 n.severity === "BLINKING" || n.severity === "BLINKED"
@@ -40,87 +41,25 @@
             }
 
             if (existingIndex !== -1) {
-                const existing = notifications[existingIndex];
-                id = existing.id;
-
-                clearInterval(existing.intervalId);
-                clearTimeout(existing.timeoutId);
-
-                let remaining = 3.0;
-                const intervalId = setInterval(() => {
-                    remaining = +(remaining - 0.1).toFixed(1);
-                    notifications = notifications.map(n =>
-                        n.id === id ? {...n, remaining} : n
-                    );
-                }, 100);
-
-                const timeoutId = setTimeout(() => {
-                    clearInterval(intervalId);
-                    notifications = notifications.map(n =>
-                        n.id === id ? {...n, leaving: true} : n
-                    );
-                    setTimeout(() => {
-                        notifications = notifications.filter(n => n.id !== id);
-                    }, 10);
-                }, 3000);
-
-                notifications[existingIndex] = {
-                    ...existing,
-                    message,
-                    severity: severity,
-                    remaining: 3.0,
-                    intervalId,
-                    timeoutId,
-                    leaving: false
-                };
-
-                notifications = notifications;
+                updateExistingNotification(existingIndex, message, severity);
                 return;
             }
         }
+
+        // Handle Enable/Disable notifications merging
         if (severity === "ENABLED" || severity === "DISABLED") {
             const existingIndex = notifications.findIndex(
                 n => n.message === message && (n.severity === "ENABLED" || n.severity === "DISABLED")
             );
 
             if (existingIndex !== -1) {
-                const existing = notifications[existingIndex];
-                id = existing.id;
-
-                clearInterval(existing.intervalId);
-                clearTimeout(existing.timeoutId);
-
-                let remaining = 3.0;
-                const intervalId = setInterval(() => {
-                    remaining = +(remaining - 0.1).toFixed(1);
-                    notifications = notifications.map(n =>
-                        n.id === id ? {...n, remaining} : n
-                    );
-                }, 100);
-
-                const timeoutId = setTimeout(() => {
-                    clearInterval(intervalId);
-                    notifications = notifications.map(n =>
-                        n.id === id ? {...n, leaving: true} : n
-                    );
-                    setTimeout(() => {
-                        notifications = notifications.filter(n => n.id !== id);
-                    }, 10);
-                }, 3000);
-
-                notifications[existingIndex] = {
-                    ...existing,
-                    severity,
-                    remaining: 3.0,
-                    intervalId,
-                    timeoutId,
-                    leaving: false
-                };
-
-                notifications = notifications;
+                updateExistingNotification(existingIndex, message, severity);
                 return;
             }
         }
+
+
+        // Default case - create new notification
         let remaining = 3.0;
         const intervalId = setInterval(() => {
             remaining = +(remaining - 0.1).toFixed(1);
@@ -153,6 +92,44 @@
         ];
     }
 
+    function updateExistingNotification(index: number, message: string, severity: string) {
+        const existing = notifications[index];
+        const id = existing.id;
+
+        clearInterval(existing.intervalId);
+        clearTimeout(existing.timeoutId);
+
+        let remaining = 3.0;
+        const intervalId = setInterval(() => {
+            remaining = +(remaining - 0.1).toFixed(1);
+            notifications = notifications.map(n =>
+                n.id === id ? {...n, remaining} : n
+            );
+        }, 100);
+
+        const timeoutId = setTimeout(() => {
+            clearInterval(intervalId);
+            notifications = notifications.map(n =>
+                n.id === id ? {...n, leaving: true} : n
+            );
+            setTimeout(() => {
+                notifications = notifications.filter(n => n.id !== id);
+            }, 10);
+        }, 3000);
+
+        notifications[index] = {
+            ...existing,
+            message,
+            severity,
+            remaining: 3.0,
+            intervalId,
+            timeoutId,
+            leaving: false
+        };
+
+        notifications = notifications;
+    }
+
     listen("notification", (e: NotificationEvent) => {
         addNotification(e.title, e.message, e.severity);
         switch (e.severity) {
@@ -179,7 +156,6 @@
                 break
         }
     });
-
 </script>
 <div class="notifications" class:draggable={notifications.length === 0}>
     {#each notifications as notification (notification.id)}
@@ -191,12 +167,12 @@
         </div>
     {:else}
         <!-- 空状态下的占位元素 -->
-        <div class="empty-placeholder"/>
+        <div class="empty-placeholder"></div>
     {/each}
 </div>
 
 <style lang="scss">
-  @import "../../../../colors.scss";
+  @use "../../../../colors" as *;
 
   .notifications {
     will-change: transform, opacity;

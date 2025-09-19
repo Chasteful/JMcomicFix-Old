@@ -21,48 +21,131 @@
 
 package net.ccbluex.liquidbounce.features.module.modules.player.autobuff.features
 
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.ScheduleInventoryActionEvent
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
-import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.features
-import net.ccbluex.liquidbounce.utils.inventory.*
-import net.ccbluex.liquidbounce.utils.item.isNothing
+import net.ccbluex.liquidbounce.utils.inventory.InventoryAction
+import net.ccbluex.liquidbounce.utils.inventory.ItemSlot
+import net.ccbluex.liquidbounce.utils.inventory.PlayerInventoryConstraints
+import net.ccbluex.liquidbounce.utils.inventory.Slots
+import net.ccbluex.liquidbounce.utils.item.getPotionEffects
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
+import net.minecraft.entity.effect.StatusEffects
+import net.minecraft.item.PotionItem
 
 object Refill : ToggleableConfigurable(ModuleAutoBuff, "Refill", true) {
 
     private val inventoryConstraints = tree(PlayerInventoryConstraints())
 
+    @Suppress("LongMethod")
     fun execute(event: ScheduleInventoryActionEvent) {
         // Check if we have space in the hotbar
+        val player = mc.player ?: return
+        val speedEffect = player.getStatusEffect(StatusEffects.SPEED)
+        val fireResistanceEffect = player.getStatusEffect(StatusEffects.FIRE_RESISTANCE)
+
+        val needSpeedRefill = !(speedEffect != null && speedEffect.duration > 600)
+        val needFireRefill = !(fireResistanceEffect != null && fireResistanceEffect.duration > 600)
+
+        val hasSpeedInHotbar = Slots.OffhandWithHotbar.any {
+            val stack = it.itemStack
+            !stack.isEmpty && stack.item is PotionItem &&
+                stack.getPotionEffects().any { effect -> effect.effectType == StatusEffects.SPEED }
+        }
+
+        val hasFireResistanceInHotbar = Slots.OffhandWithHotbar.any {
+            val stack = it.itemStack
+            !stack.isEmpty && stack.item is PotionItem &&
+                stack.getPotionEffects().any { effect -> effect.effectType == StatusEffects.FIRE_RESISTANCE }
+        }
+
+        val speedPotions = Slots.Inventory.filter {
+            val itemStack = it.itemStack
+            itemStack.item is PotionItem &&
+                itemStack.getPotionEffects().any { effect -> effect.effectType == StatusEffects.SPEED }
+        }
+
+        val fireResistancePotions = Slots.Inventory.filter {
+            val itemStack = it.itemStack
+            itemStack.item is PotionItem &&
+                itemStack.getPotionEffects().any { effect -> effect.effectType == StatusEffects.FIRE_RESISTANCE }
+        }
+
+        if (needSpeedRefill) {
+            handlePotionRefill(speedPotions, hasSpeedInHotbar, event)
+            if (!hasSpeedInHotbar) {
+                speedPotions.firstOrNull()?.let { speedSlot ->
+                    event.schedule(
+                        inventoryConstraints, InventoryAction.Click.performQuickMove(slot = speedSlot),
+                        Priority.IMPORTANT_FOR_USAGE_1
+                    )
+                }
+            }
+        }
+
+        if (needFireRefill) {
+            handlePotionRefill(fireResistancePotions, hasFireResistanceInHotbar, event)
+            if (!hasFireResistanceInHotbar) {
+                fireResistancePotions.firstOrNull()?.let { fireResistanceSlot ->
+                    event.schedule(
+                        inventoryConstraints, InventoryAction.Click.performQuickMove(slot = fireResistanceSlot),
+                        Priority.IMPORTANT_FOR_USAGE_1
+                    )
+                }
+            }
+        }
+
         if (!findEmptyHotbarSlot()) {
             return
         }
 
-        val validFeatures = features.filter { it.enabled }
+        val validFeatures = ModuleAutoBuff.activeFeatures
 
         // Find valid items in the inventory
-        val validItems = Slots.Inventory.filter {
-            val itemStack = it.itemStack
-            validFeatures.any { f -> f.isValidItem(itemStack, false) }
+        val otherValidItems = Slots.Inventory.filter { slot ->
+            val itemStack = slot.itemStack
+            validFeatures.any { f -> f.isValidItem(itemStack, false) } &&
+                !speedPotions.contains(slot) && !fireResistancePotions.contains(slot)
         }
 
         // Check if we have any valid items
-        if (validItems.isEmpty()) {
+        if (otherValidItems.isEmpty()) {
             return
         }
 
         // Sort the items by the order of the features
-        for (slot in validItems) {
+        for (slot in otherValidItems) {
             event.schedule(
-                inventoryConstraints, ClickInventoryAction.performQuickMove(slot = slot),
+                inventoryConstraints, InventoryAction.Click.performQuickMove(slot = slot),
                 Priority.IMPORTANT_FOR_USAGE_1
             )
         }
     }
+    private fun handlePotionRefill(
+        potions: List<ItemSlot>,
+        hasInHotbar: Boolean,
+        event: ScheduleInventoryActionEvent
+    ) {
+        if (potions.isEmpty() || hasInHotbar || findEmptyHotbarSlot()) return
+
+        val nonRelevantHotbar = Slots.OffhandWithHotbar.firstOrNull {
+            val stack = it.itemStack
+            !stack.isEmpty && !(stack.item is PotionItem && stack.getPotionEffects()
+                .any { effect -> effect.effectType == StatusEffects.SPEED ||
+                    effect.effectType == StatusEffects.FIRE_RESISTANCE })
+        }
+
+        nonRelevantHotbar?.let { slot ->
+            event.schedule(
+                inventoryConstraints,
+                InventoryAction.Click.performQuickMove(slot = slot),
+                Priority.IMPORTANT_FOR_USAGE_1
+            )
+        } ?: return
+    }
 
     private fun findEmptyHotbarSlot(): Boolean {
-        return Slots.Hotbar.findSlot { it.isNothing() } != null
+        return Slots.OffhandWithHotbar.findSlot { it.isEmpty } != null
     }
 
 }

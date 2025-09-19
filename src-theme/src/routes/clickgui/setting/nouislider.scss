@@ -36,7 +36,7 @@
 .noUi-connect {
   border: none;
   background: linear-gradient(
-                  120deg,
+                  120deg in oklch,
                   color-mix(in srgb, var(--primary-color) 50%, transparent) 0%,
                   color-mix(in srgb, var(--secondary-color) 50%, transparent) 100%,
   );

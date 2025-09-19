@@ -3,7 +3,7 @@
     import ButtonContainer from "../common/buttons/ButtonContainer.svelte";
     import IconTextButton from "../common/buttons/IconTextButton.svelte";
     import IconButton from "../common/buttons/IconButton.svelte";
-    import {browse, getClientUpdate, openScreen} from "../../../integration/rest";
+    import {browse, getClientRelease, openScreen} from "../../../integration/rest";
     import Menu from "../common/Menu.svelte";
     import {fly} from "svelte/transition";
     import {onMount} from "svelte";
@@ -11,16 +11,18 @@
 
     let regularButtonsShown = true;
     let clientButtonsShown = false;
+
     onMount(() => {
         setTimeout(async () => {
-            const clientUpdate = await getClientUpdate();
+            const release = await getClientRelease();
 
-            if (clientUpdate.update) {
+            if (release && !release.error) {
                 notification.set({
-                    title: `LiquidBounce ${clientUpdate.update.clientVersion} has been released!`,
-                    message: `Go and notify KotlinModule!`,
+                    title: `JMcomicFix ${release.tagName} version has been released!`,
+                    message: `Click to copy the download link.`,
+                    url: release.downloadUrl,
                     error: false,
-                    delay: 999999
+                    delay: 50
                 });
             }
         }, 2000);

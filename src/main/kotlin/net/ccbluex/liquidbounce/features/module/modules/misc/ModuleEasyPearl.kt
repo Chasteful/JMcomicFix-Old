@@ -25,13 +25,13 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.jmcomicfix.features.module.modules.world.stuck.ModuleAutoStuck.shouldEnableStuck
+import net.ccbluex.liquidbounce.features.module.modules.movement.ModuleStuck
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
-import net.ccbluex.liquidbounce.utils.aiming.projectiles.SituationalProjectileAngleCalculator
+import net.ccbluex.liquidbounce.utils.aiming.projectiles.BasicLandingPointAngleCalculator
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.markAsError
@@ -72,7 +72,7 @@ object ModuleEasyPearl :
      */
     @Suppress("unused")
     private val interactItemHandler = handler<PlayerInteractItemEvent> { event ->
-        if (shouldEnableStuck) return@handler
+        if (ModuleStuck.enabled) return@handler
         if (!isHoldingPearl() || !mc.options.useKey.isPressed) {
             return@handler
         }
@@ -100,7 +100,7 @@ object ModuleEasyPearl :
 
     @Suppress("unused")
     private val rotationHandler = handler<RotationUpdateEvent> {
-        if (shouldEnableStuck) return@handler
+        if (ModuleStuck.enabled) return@handler
         /**
          * handler for rotation update event,and rotate to the target rotation
          */
@@ -115,7 +115,7 @@ object ModuleEasyPearl :
 
     @Suppress("unused")
     private val tickHandler = tickHandler {
-        if (shouldEnableStuck) return@tickHandler
+        if (ModuleStuck.enabled) return@tickHandler
         /**
          * handler for tick event,and check if we are rotating to the target rotation correctly,if yes,throw the pearl
          */
@@ -137,7 +137,7 @@ object ModuleEasyPearl :
      */
     @Suppress("unused")
     private val worldRenderHandler = handler<WorldRenderEvent> { event ->
-        if (shouldEnableStuck) return@handler
+        if (ModuleStuck.enabled) return@handler
 
         if (!isHoldingPearl()) {
             return@handler
@@ -211,10 +211,11 @@ object ModuleEasyPearl :
      * @return the target rotation for the target position
      */
     private fun getTargetRotation(targetPosition: Vec3d): Rotation? =
-        SituationalProjectileAngleCalculator.calculateAngleFor(
+        BasicLandingPointAngleCalculator.calculateAngleFor(
             TrajectoryInfo.GENERIC,
-            sourcePos = player.pos,
-            targetPosFunction = ConstantPositionExtrapolation(targetPosition),
-            targetShape = EntityDimensions.fixed(1.0F, 0.0F),
+            player.eyePos.add(player.getRotationVec(0f).multiply(0.16)),
+            ConstantPositionExtrapolation(targetPosition),
+            EntityDimensions.fixed(0f, 0f)
         )
+
 }

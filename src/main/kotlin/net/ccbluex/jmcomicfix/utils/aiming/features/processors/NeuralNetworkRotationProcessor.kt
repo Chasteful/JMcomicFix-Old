@@ -1,15 +1,13 @@
 package net.ccbluex.jmcomicfix.utils.aiming.features.processors
 
-import net.ccbluex.jmcomicfix.utils.aiming.technology.SixNodeNineStateNeuralNetwork
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.jmcomicfix.utils.technology.SixNodeNineStateNeuralNetwork
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationTarget
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.features.processors.RotationProcessor
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
-import net.ccbluex.liquidbounce.utils.kotlin.random
-import net.minecraft.util.math.MathHelper
 
 class NeuralNetworkRotationProcessor(owner: EventListener? = null) : ToggleableConfigurable(
     owner, "6-9NN", false), RotationProcessor {

@@ -2,32 +2,45 @@
     import {onDestroy, onMount, tick} from "svelte";
     import {fade} from "svelte/transition";
     import {
-        getSession,
-        getModules,
+        getClientInfo,
+        getModuleSettings,
         getPlayerData,
-        getClientInfo
+        getPlayerInventory,
+        getSession
     } from "../../../../integration/rest";
-    import type {ClientInfo} from "../../../../integration/types";
-    import type {ClientPlayerDataEvent} from "../../../../integration/events";
+    import type {ClientInfo, ItemStack, PlayerData, Session} from "../../../../integration/types";
+    import type {
+        ClientPlayerDataEvent,
+        ClientPlayerInventoryEvent,
+        ProgressEvent,
+    } from "../../../../integration/events";
     import {listen} from "../../../../integration/ws";
-    import type {Session, PlayerData} from "../../../../integration/types";
-    import {tweened} from "svelte/motion";
+    import {Tween} from "svelte/motion";
     import {cubicOut} from "svelte/easing";
     import {
-        blockCount,
-        armorValue,
-        armorThreshold,
-        DURABILITY_RECOVERY,
-        totemCount,
         armorDurabilityStore,
-        emptySlotCount,
+        armorThreshold,
+        armorValue,
+        blockCount,
+        DURABILITY_RECOVERY,
         DURABILITY_THRESHOLD,
-        targetId
+        emptySlotCount,
+        targetId,
+        totemCount
     } from './Island';
     import {get} from 'svelte/store';
     import {calcArmorValue} from "../../../../util/Client/calcArmorValue";
     import {clientName} from "../../../../util/Theme/ThemeManager";
-    import {TimeoutManager} from "../../../../util/Theme/TimeoutManager";
+    import {
+        checkUsernameVisibility,
+        nameProtect,
+        NameProtectSetting,
+        randomCode,
+        showUsername,
+        useGarbled
+    } from "../../../../util/Theme/NameProtectManager";
+    import {Interval} from "../../../../util/timeout_utils";
+    import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
 
     const ALERT_DISPLAY_DURATION_MS = 2500;
     const INVENTORY_FULL_COOLDOWN_MS = 30000;
@@ -36,12 +49,19 @@
     const ANIMATION_DURATION_MS = 300;
     const DURABILITY_COOLDOWN_MS = 1000;
     const TOTEM_WARNING_COOLDOWN_MS = 5000;
+    const PADDING = 32;
+    const PADDING_SIDES = 64;
+
+    const userData = JSON.parse(
+        localStorage.getItem('userSettings') ||
+        JSON.stringify({username: 'Customer'})
+    );
 
     type AlertType =
         'health' | 'air' | 'blocks' | 'hunger' | 'uniform' | 'totem' |
         'saturation' | 'unbeatable' | 'durability' | 'inventory' | 'eating' | null;
     type AlertState = 'hidden' | 'showing' | 'hiding';
-    type ContentType = 'alert' | 'greeting' | 'status';
+    type ContentType = 'alert' | 'greeting' | 'status' | 'chest';
 
     interface Alert {
         type: AlertType;
@@ -49,18 +69,22 @@
         message: string;
     }
 
-
     let lastTotemCount = 0;
     let totemWarningCooldown = false;
+
     let alertState: AlertState = 'hidden';
     let session: Session | null = null;
+
+    let progressEvent: ProgressEvent | null = null;
     let playerData: PlayerData | null = null;
-    let showUsername = false;
+
     let currentAlert: Alert | null = null;
     let alertHideTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let lastInventoryFullAlertTime = 0;
     let eatingProgress = 0;
     let eatingDuration = 0;
+    let chestWidth = 0;
+    let chestMeasured = false;
     let isActuallyEating = false;
     let eatingAnimationFrame: number;
     let time = "";
@@ -77,27 +101,26 @@
     let currentContent: ContentType = 'greeting';
     let nextContent: ContentType | null = null;
     let nextContentWidth = 0;
-    let randomCode = "";
+    let openChest: ItemStack[] = [];
     let animationPhase: 'idle' | 'contract' | 'expand' = 'idle';
     let wrapper: HTMLDivElement | null = null;
     let clientInfo: ClientInfo | null = null;
 
-
     const lastArmorAlertTimes = new Map<string, number>();
     const warnedSlots = new Set<string>();
-    const timeoutManager = new TimeoutManager();
+    const timeoutManager = new Interval();
     const warnTimestamps = new Map<string, number>();
     const contentRefs = {
         alert: null as HTMLDivElement | null,
         greeting: null as HTMLDivElement | null,
-        status: null as HTMLDivElement | null
+        status: null as HTMLDivElement | null,
+        chest: null as HTMLDivElement | null
     };
 
-    const initialWidth = tweened(0, {duration: 400, easing: cubicOut});
-    const initialOpacity = tweened(0, {duration: 400, easing: cubicOut});
-    const w = tweened(400, {duration: 300, easing: cubicOut});
-    const h = tweened(40, {duration: 300, easing: cubicOut});
-
+    const initialWidth = new Tween(0, {duration: 400, easing: cubicOut});
+    const initialOpacity = new Tween(0, {duration: 400, easing: cubicOut});
+    const w = new Tween(400, {duration: 300, easing: cubicOut});
+    const h = new Tween(40, {duration: 300, easing: cubicOut});
 
     const getTimeGreeting = (hours: number): string => {
         if (hours >= 5 && hours < 12) return "Good morning";
@@ -118,32 +141,6 @@
         time = formatTime(hours, minutes);
     };
 
-    const codeGenerator = {
-        generate: (length = 6): string => {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~`§';
-            return Array.from({length}, () =>
-                chars.charAt(Math.floor(Math.random() * chars.length))
-            ).join('');
-        },
-        start: (intervalMs = 200) => {
-            randomCode = codeGenerator.generate();
-            timeoutManager.set("randomUsername", () => {
-                randomCode = codeGenerator.generate();
-                codeGenerator.start(intervalMs);
-            }, intervalMs);
-        },
-        stop: () => timeoutManager.clear("randomUsername")
-    };
-
-    const checkUsernameVisibility = async (): Promise<void> => {
-        const modules = await getModules();
-        showUsername = modules.some(module =>
-            module.name === "NameProtect" && !module.enabled
-        );
-
-        if (!showUsername) codeGenerator.start();
-        else codeGenerator.stop();
-    };
 
     const clearAlertState = (): void => {
         if (alertHideTimeoutId) {
@@ -162,7 +159,6 @@
             check();
         });
     };
-
 
     const checkHealthAlert = (newHealth: number): void => {
         if ($totemCount >= 1) return;
@@ -269,7 +265,6 @@
         lastArmorAlertTimes.set(targetId, now);
     };
 
-
     const showAlert = (type: AlertType, title: string, message: string, duration?: number): void => {
         const doShow = () => doShowAlert(type, title, message, duration || (type === 'eating' ? 3000 : ALERT_DISPLAY_DURATION_MS));
 
@@ -299,10 +294,9 @@
             currentContent = 'alert';
             animationPhase = 'expand';
 
-            // ⏱ 等待 DOM 渲染后计算宽度并设置动画尺寸
             tick().then(() => {
                 const targetEl = contentRefs.alert;
-                nextContentWidth = targetEl ? targetEl.scrollWidth + 64 : 300;
+                nextContentWidth = targetEl ? targetEl.scrollWidth + PADDING_SIDES : 300;
                 w.set(nextContentWidth);
                 h.set(50);
 
@@ -332,7 +326,7 @@
             alertState = 'hidden';
             currentAlert = null;
             animationPhase = 'idle';
-            switchContent('status');
+            switchContent(openChest.length > 0 ? 'chest' : 'status');
         } else {
             alertState = 'hiding';
             animationPhase = 'contract';
@@ -340,11 +334,10 @@
                 currentAlert = null;
                 alertState = 'hidden';
                 animationPhase = 'idle';
-                switchContent('status');
+                switchContent(openChest.length > 0 ? 'chest' : 'status');
             }, ANIMATION_DURATION_MS);
         }
     };
-
 
     const startEatingProgress = (duration: number) => {
         if (eatingAnimationFrame) cancelAnimationFrame(eatingAnimationFrame);
@@ -373,15 +366,16 @@
         if (currentContent === type) return;
         nextContent = type;
         const targetEl = contentRefs[type];
-        nextContentWidth = targetEl ? targetEl.scrollWidth + 64 : 300;
+
+        const baseWidth = contentRefs.status?.scrollWidth || 312;
+        nextContentWidth = type === 'chest' ? baseWidth : (targetEl ? targetEl.scrollWidth + PADDING_SIDES : 300);
         animationPhase = 'contract';
         currentContent = type;
         w.set(nextContentWidth);
-        h.set(type === 'alert' ? 50 : 40);
+        h.set(type === 'alert' ? 50 : type === 'chest' ? (openChest.length > 27 ? 200 : 104) : 40);
         animationPhase = 'idle';
         nextContent = null;
     };
-
     const handleEatingState = (newData: PlayerData) => {
         const nowEating = newData.isEating;
 
@@ -428,14 +422,19 @@
     const updateAllData = async (): Promise<void> => {
         const newData = await getPlayerData();
         if (!newData) return;
+        const inventory = await getPlayerInventory();
+        openChest = inventory.openChest ?? [];
         session = await getSession();
-        await checkUsernameVisibility();
+
         updateTime();
         timeLoaded = true;
+
         await updateClientInfo();
         await updatePlayerData();
+        await checkUsernameVisibility();
+        const settings = await getModuleSettings("NameProtect");
+        NameProtectSetting(settings);
     };
-
 
     const handleInitialAnimationEnd = async () => {
         await waitUntilNoAlert();
@@ -449,11 +448,19 @@
         await new Promise(res => setTimeout(res, 1500));
         initialAnimation = false;
         initialAnimationDone = true;
-        switchContent('status');
+        switchContent(openChest.length > 0 ? 'chest' : 'status');
     };
 
-
     $: loaded = timeLoaded && clientInfo;
+    $: if ($showUsername || $useGarbled || $nameProtect) {
+        tick().then(() => {
+            const targetEl = contentRefs[currentContent];
+            if (targetEl) {
+                const contentWidth = targetEl.scrollWidth;
+                w.set(contentWidth);
+            }
+        });
+    }
     $: {
         if ($armorDurabilityStore) checkArmorDurability();
         if ($blockCount !== undefined) checkBlockAlert($blockCount);
@@ -464,42 +471,59 @@
     }
     $: {
         if (nextContent) {
-            w.set(nextContentWidth);
-            h.set(nextContent === 'alert' ? 50 : 40);
+
+            w.set(
+                nextContent === 'chest'
+                    ? (contentRefs.chest?.scrollWidth || 312)
+                    : nextContentWidth
+            );
+
+            h.set(
+                nextContent === 'alert'
+                    ? 50
+                    : nextContent === 'chest'
+                        ? (contentRefs.chest?.scrollHeight || 104) + PADDING
+                        : 40
+            );
+
         } else {
             const widthMap = {
-                alert: 280 + 32,
-                greeting: (contentRefs.greeting?.scrollWidth || 0) + 32,
-                status: (contentRefs.status?.scrollWidth || 0) + 32
+                alert: 280 + PADDING,
+                greeting: (contentRefs.greeting?.scrollWidth || 0) + PADDING,
+                status: (contentRefs.status?.scrollWidth || 0) + PADDING,
+                chest: chestMeasured ? chestWidth : (contentRefs.chest?.scrollWidth || 0) + PADDING
             };
             const targetWidth = currentContent === 'alert' && currentAlert?.type === 'eating'
                 ? widthMap.alert
                 : widthMap[currentContent];
-
             w.set(targetWidth);
-            h.set(currentContent === 'alert' ? 50 : 40);
+            h.set(
+                currentContent === 'alert'
+                    ? 50
+                    : currentContent === 'chest'
+                        ? (contentRefs.chest?.scrollHeight || 104) + PADDING
+                        : 40
+            );
         }
+    }
+    $: if (currentContent === 'chest' && contentRefs.chest?.scrollWidth) {
+        chestWidth = contentRefs.chest.scrollWidth;
+        chestMeasured = true;
+        w.set(chestWidth);
     }
 
 
-    const userData = JSON.parse(
-        localStorage.getItem('userSettings') ||
-        JSON.stringify({
-            username: 'Customer',
-            uid: '',
-            isDev: false,
-            isOwner: false,
-            hwid: '',
-            developer: 'Customer',
-            avatar: ''
-        })
-    );
+    $: if (openChest.length > 0 && currentContent !== 'alert' && !initialAnimation && progressEvent?.title === "ChestStealer") {
+        switchContent('chest');
+    } else if (openChest.length === 0 && currentContent === 'chest' && !initialAnimation) {
+        switchContent('status');
+    }
 
     onMount(() => {
         isMounted = true;
         (async () => {
             await tick();
-            await initialWidth.set((wrapper?.scrollWidth || 312) + 64);
+            await initialWidth.set((wrapper?.scrollWidth || 312) + PADDING_SIDES);
             await initialOpacity.set(1);
             await updateAllData().catch(console.error);
             await handleInitialAnimationEnd();
@@ -519,8 +543,16 @@
         timeoutManager.clearAll();
         if (eatingAnimationFrame) cancelAnimationFrame(eatingAnimationFrame);
     });
+    listen("progress", (e: ProgressEvent) => {
+        progressEvent = e;
 
-    listen("playerData", async (event: ClientPlayerDataEvent) => {
+        if (e.progress >= e.maxProgress) {
+            setTimeout(() => {
+                progressEvent = null;
+            }, 100);
+        }
+    });
+    listen("clientPlayerData", async (event: ClientPlayerDataEvent) => {
         const newData = event.playerData;
         if (newData.armorItems) newData.armor = calcArmorValue(newData.armorItems);
 
@@ -538,19 +570,27 @@
 
         playerData = newData;
     });
+    listen("clientPlayerInventory", (data: ClientPlayerInventoryEvent) => {
+        openChest = data.inventory.openChest ?? [];
+    });
+    listen("nameProtectValueChange", async () => {
+        const settings = await getModuleSettings("NameProtect");
+        NameProtectSetting(settings);
+    });
 </script>
-{#if loaded}
+{#if loaded && playerData}
     <div class="dynamic-island-container">
-        <div class="dynamic-island {alertState}"
+        <div class="dynamic-island hud-container {alertState}"
              class:notification-active={currentAlert !== null}
              class:contract={animationPhase === 'contract'}
              class:expand={animationPhase === 'expand'}
              class:initial={initialAnimation}
-             style="width: {initialAnimation ? $initialWidth : $w}px;
-     height: {initialAnimation ? 40 : ($h + (currentAlert ? 10 : 0))}px;
-     opacity: {$initialOpacity};">
+             style="width: {initialAnimation ? initialWidth.current : w.current}px;
+                height: {initialAnimation ? 40 : (h.current + (currentAlert ? 10 : 0))}px;
+                opacity: {initialOpacity.current};
+                transform-origin: top center;">
             <div class="content-wrapper" bind:this={wrapper}>
-                {#if currentAlert}
+                {#if currentAlert && playerData.gameMode !== "creative"}
                     <div class="notification-content {currentAlert.type}"
                          in:fade={{ duration: 150 }}
                          bind:this={contentRefs.alert}>
@@ -564,8 +604,7 @@
                         {#if currentAlert.type === 'eating'}
                             <div class="eating-progress-bar">
                                 <div class="eating-progress-fill"
-                                     style="width: {eatingProgress * 100}%;
-                              ">
+                                     style="width: {eatingProgress * 100}%;">
                                 </div>
                             </div>
                         {:else}
@@ -579,10 +618,17 @@
                          in:fade={{ duration: 150 }}
                          bind:this={contentRefs.greeting}>
                         <span class="greeting">{timeGreeting}</span>
-
                         <span class="username">&nbsp;{userData.username}~</span>
-
-
+                    </div>
+                {:else if currentContent === 'chest' && playerData.gameMode !== "spectator"}
+                    <div class="chest-content"
+                         in:fade={{ duration: 150 }}
+                         bind:this={contentRefs.chest}>
+                        <div class="chest-container">
+                            {#each openChest as stack (stack)}
+                                <ItemStackView {stack}/>
+                            {/each}
+                        </div>
                     </div>
                 {:else}
                     <div class="status-content"
@@ -596,12 +642,14 @@
                             <span class="fps">{clientInfo.fps}fps</span>
                             <div class="separator"></div>
                             <span class="username">
-                            {#if showUsername}
-                                {userData.username}
-                            {:else}
-                                {randomCode}
-                            {/if}
-                        </span>
+                              {#if $showUsername && session}
+                                  {session.username}
+                              {:else if $useGarbled}
+                                  {$randomCode}
+                              {:else}
+                                  {$nameProtect}
+                              {/if}
+                            </span>
                         {/if}
                     </div>
                 {/if}
@@ -609,8 +657,10 @@
         </div>
     </div>
 {/if}
+
 <style lang="scss">
-  @import "../../../../colors";
+  @use "../../../../colors" as *;
+  @use "sass:list";
 
   @mixin text-ellipsis {
     white-space: nowrap;
@@ -619,13 +669,13 @@
   }
 
   :root {
-    --island-bg: rgba(20, 20, 20, 0.5);
-    --text-primary: rgba(255, 255, 255, 0.9);
 
+    --text-primary: rgba(255, 255, 255, 0.9);
   }
 
   .dynamic-island-container {
     display: flex;
+    position: absolute;
     top: 5px;
     left: 50%;
     transform: translateX(-50%);
@@ -633,21 +683,19 @@
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3)) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.2)) drop-shadow(0 16px 48px rgba(0, 0, 0, 0.15));
   }
 
+
   .dynamic-island {
     overflow: hidden;
-    border-radius: 20px;
-    background: var(--island-bg);
     color: var(--text-primary);
     padding: 0 16px;
+    border-radius: 24px;
     display: flex;
     align-items: center;
     transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1),
-    height 0.3s cubic-bezier(0.25, 1, 0.5, 1),
-    border-radius 0.3s 0.1s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.3s ease;
+    height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     transform-style: preserve-3d;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6),
-    inset 0 0 10px rgba(255, 255, 255, 0.05);
+
+    transform-origin: top center;
 
     &.expand {
       border-radius: 16px;
@@ -662,11 +710,11 @@
     }
 
     &.initial {
-      transform-origin: center;
+      transform-origin: top center;
       animation: initialExpand 0.5s cubic-bezier(0.2, 0, 0.1, 1) forwards;
 
       &:not(.showing):not(.hiding) {
-        transform-origin: center;
+        transform-origin: top center;
         animation: initialExpand 0.5s cubic-bezier(0.2, 0, 0.1, 1) forwards;
       }
 
@@ -705,16 +753,20 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .username::after {
+      content: "";
+      display: inline-block;
+      width: 32px;
+    }
+
     .client {
       font-weight: bold;
       background-clip: text;
-      background: linear-gradient(to right, var(--primary-color) 0%, var(--secondary-color) 100%);
+      background: linear-gradient(to right in oklch, var(--primary-color) 0%, var(--secondary-color) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       text-shadow: 0 0 1px color-mix(in srgb, var(--primary-color) 30%, transparent);
-
     }
-
 
     .separator {
       width: 1px;
@@ -725,6 +777,22 @@
       opacity: 0.7;
       animation: fadeBreath 2s infinite ease-in-out;
     }
+  }
+
+  .chest-content {
+    width: 100%;
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .chest-container {
+    display: grid;
+    grid-template-columns: repeat(9, 32px);
+    gap: 4px;
+    min-height: 104px;
+    width: 100%;
+    justify-content: center;
   }
 
   .notification-content {
@@ -764,10 +832,10 @@
 
     // 循环生成不同类型通知的样式
     @each $type, $colors in $notification-types {
-      $primary: nth($colors, 1);
-      $secondary: nth($colors, 2);
-      $hue-rotate: nth($colors, 3);
-      $text-color: nth($colors, 4);
+      $primary: list.nth($colors, 1);
+      $secondary: list.nth($colors, 2);
+      $hue-rotate: list.nth($colors, 3);
+      $text-color: list.nth($colors, 4);
 
       &.#{$type} {
         .icon img {
@@ -784,25 +852,26 @@
         .progress-bar {
           background: linear-gradient(90deg, $primary, $secondary);
         }
+
+        .eating-progress-bar {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 3px;
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 0 0 16px 16px;
+          overflow: hidden;
+
+          .eating-progress-fill {
+            height: 100%;
+            transition: width 0.1s linear;
+            background: linear-gradient(90deg, $primary, $secondary);
+          }
+        }
       }
     }
 
-    .eating-progress-bar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 3px;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 0 0 16px 16px;
-      overflow: hidden;
-
-      .eating-progress-fill {
-        height: 100%;
-        transition: width 0.1s linear;
-        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-      }
-    }
 
     .progress-bar-container {
       position: absolute;

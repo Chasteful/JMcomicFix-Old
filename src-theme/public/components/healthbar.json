@@ -1,0 +1,26 @@
+{
+  "name": "HealthBar",
+  "enabled": true,
+  "singleton": true,
+  "alignment": {
+    "horizontalAlignment": "CenterTranslated",
+    "horizontalOffset": 0,
+    "verticalAlignment": "Bottom",
+    "verticalOffset": 70
+  },
+  "values": [
+    {
+      "type": "CHOOSE",
+      "name": "Mode",
+      "value": "Genshin",
+      "choices": [
+        "Genshin"
+      ]
+    }
+  ],
+  "tweaks": [
+    "DISABLE_STATUS_BAR",
+    "DISABLE_EXP_BAR"
+  ]
+}
+

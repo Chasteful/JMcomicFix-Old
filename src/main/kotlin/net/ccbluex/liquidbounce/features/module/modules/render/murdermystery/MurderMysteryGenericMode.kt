@@ -1,6 +1,6 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.murdermystery
 
-import net.ccbluex.liquidbounce.config.types.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.minecraft.client.network.AbstractClientPlayerEntity
@@ -22,7 +22,7 @@ abstract class MurderMysteryGenericMode(name: String) : Choice(name), MurderMyst
             currentPlayerType = player.handItems.firstNotNullOfOrNull {
                 when {
                     it.item is BowItem || it.item == Items.ARROW -> MurderMysteryMode.PlayerType.DETECTIVE_LIKE
-                    MurderMysterySwordDetection.isSword(it.item) -> MurderMysteryMode.PlayerType.MURDERER
+                    MurderMysterySwordDetection.isSword(it) -> MurderMysteryMode.PlayerType.MURDERER
                     else -> null
                 }
             } ?: MurderMysteryMode.PlayerType.NEUTRAL

@@ -22,7 +22,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.player.autobuff
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.ScheduleInventoryActionEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -43,7 +43,7 @@ object ModuleAutoBuff : ClientModule(
     /**
      * All buff features
      */
-    internal val features = arrayOf(
+    private val features = arrayOf(
         Soup,
         Head,
         Pot,
@@ -81,7 +81,10 @@ object ModuleAutoBuff : ClientModule(
         tree(Refill)
     }
 
-    internal class AutoBuffRotationsConfigurable : RotationsConfigurable(this) {
+    /**
+     * Rotation Configurable for every feature that depends on rotation change
+     */
+    internal object Rotations : RotationsConfigurable(this) {
 
         val rotationTiming by enumChoice("RotationTiming", RotationTimingMode.NORMAL).apply(::tagBy)
 
@@ -93,15 +96,14 @@ object ModuleAutoBuff : ClientModule(
 
     }
 
-    /**
-     * Rotation Configurable for every feature that depends on rotation change
-     */
-    internal val rotations = tree(AutoBuffRotationsConfigurable())
+    init {
+        tree(Rotations)
+    }
 
     internal val combatPauseTime by int("CombatPauseTime", 0, 0..40, "ticks")
     private val notDuringCombat by boolean("NotDuringCombat", false)
 
-    private val activeFeatures
+    internal val activeFeatures
         get() = features.filter { it.enabled }
     var eatingStartTime: Long = 0
     var isEating: Boolean = false
@@ -150,8 +152,10 @@ object ModuleAutoBuff : ClientModule(
         }
 
         for (feature in activeFeatures) {
-            if (feature.runIfPossible(this)) {
-                return@tickHandler
+            with(feature) {
+                if (runIfPossible()) {
+                    return@tickHandler
+                }
             }
         }
     }
@@ -164,11 +168,9 @@ object ModuleAutoBuff : ClientModule(
         }
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         SilentHotbar.resetSlot(ModuleAutoBuff)
-
-        features.forEach { it.disable() }
-        super.disable()
+        super.onDisabled()
     }
 
 }

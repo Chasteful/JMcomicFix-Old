@@ -19,7 +19,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.player
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -46,8 +46,37 @@ object ModuleEagle : ClientModule(
         }
 
     private var currentEdgeDistance: Float = edgeDistance.random()
-    private var wasSneaking = false
+    var wasSneaking = false
+    var shouldBeActive = false
+    private object EagleAutoBlockFeature : ToggleableConfigurable(this, "AutoBlock", true) {
+        val slotResetDelay by int("SlotResetDelay", 5, 0..40, "ticks")
+        val doNotUseBelowCount by int("DoNotUseBelowCount", 1, 0..64)
 
+        private var lastSwitch = 0
+
+        fun trySwitchBlock(): Boolean {
+            if (!shouldBeActive)return false
+            if (!enabled || player.isCreative) return false
+
+            val handStack = player.mainHandStack
+            if (isValidBlock(handStack) && handStack.count > doNotUseBelowCount) return false
+
+            if (lastSwitch > 0) {
+                lastSwitch--
+                return false
+            }
+
+            for (i in 0..8) {
+                val stack = player.inventory.getStack(i)
+                if (isValidBlock(stack) && stack.count > doNotUseBelowCount) {
+                    player.inventory.selectedSlot = i
+                    lastSwitch = slotResetDelay
+                    return true
+                }
+            }
+            return false
+        }
+    }
     private object Conditional : ToggleableConfigurable(this, "Conditional", true) {
         private val conditions by multiEnumChoice(
             "Conditions",
@@ -57,7 +86,7 @@ object ModuleEagle : ClientModule(
         val pitch by floatRange("Pitch", -90f..90f, -90f..90f)
 
         fun shouldSneak(event: MovementInputEvent) =
-            enabled && player.pitch in pitch && conditions.all { it.meetsCondition(event) }
+            !enabled || player.pitch in pitch && conditions.all { it.meetsCondition(event) }
 
         @Suppress("unused")
         private enum class Conditions(
@@ -89,19 +118,15 @@ object ModuleEagle : ClientModule(
     }
 
     init {
-        tree(Conditional)
+        treeAll(Conditional, EagleAutoBlockFeature)
     }
-
-    override fun disable() {
-        wasSneaking = false
-        super.disable()
-    }
-
     @Suppress("unused")
     private val handleMovementInput = handler<MovementInputEvent>(priority = SAFETY_FEATURE) { event ->
         debugParameter("EdgeDistance") { currentEdgeDistance }
 
-        val shouldBeActive = !player.abilities.flying && Conditional.shouldSneak(event) &&
+        EagleAutoBlockFeature.trySwitchBlock()
+
+        shouldBeActive = !player.abilities.flying && Conditional.shouldSneak(event) &&
             player.isCloseToEdge(event.directionalInput, currentEdgeDistance.toDouble())
 
         event.sneak = event.sneak && !Conditional.shouldSneak(event) || shouldBeActive
@@ -113,5 +138,13 @@ object ModuleEagle : ClientModule(
             wasSneaking = false
         }
     }
+
+
+
+    override fun onDisabled() {
+        wasSneaking = false
+        super.onDisabled()
+    }
+
 
 }

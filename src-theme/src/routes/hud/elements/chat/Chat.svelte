@@ -2,14 +2,14 @@
     import {onMount, afterUpdate} from 'svelte';
     import {listen} from '../../../../integration/ws';
     import TextComponent from '../../../menu/common/TextComponent.svelte';
-    import {type KeyEvent, type ChatReceiveEvent, ChatType} from '../../../../integration/events';
+    import {type KeyEvent, type OverlayChatEvent, type EventMap} from '../../../../integration/events';
     import {getMinecraftKeybinds} from '../../../../integration/rest';
     import type {MinecraftKeybind} from '../../../../integration/types';
     import {fly} from 'svelte/transition';
-    import {tweened} from 'svelte/motion';
+    import {Tween} from 'svelte/motion';
     import {cubicOut, expoInOut} from 'svelte/easing';
 
-    const MAX_MESSAGES = 50;
+    const MAX_MESSAGES = 30;
     const MAX_DISPLAYED = 25;
     const HEIGHT_FOCUSED = 500;
     const HEIGHT_BLUR = 312;
@@ -18,14 +18,14 @@
     const FADE_DELAY_BETWEEN_BATCHES = 800;
 
     $: chatHeight.set(focus ? HEIGHT_FOCUSED : HEIGHT_BLUR);
-    const chatHeight = tweened(HEIGHT_BLUR, {
+    const chatHeight = new Tween(HEIGHT_BLUR, {
         duration: 300,
         easing: cubicOut
     });
     let fadeQueue: typeof chatMessages[number][] = [];
     let activeFadeCount = 0;
     let focus = false;
-    let chatMessages: Array<ChatReceiveEvent & {
+    let chatMessages: Array<OverlayChatEvent & {
         id: number;
         visible: boolean;
         fadeTimeout?: number;
@@ -114,10 +114,7 @@
     }
 
 
-    function addMessage(event: ChatReceiveEvent) {
-        if (event.type == ChatType.DISGUISED_CHAT_MESSAGE) {
-            return;
-        }
+    function addMessage(event: OverlayChatEvent) {
         const msg = {...event, id: nextId++, visible: true} as typeof chatMessages[0];
         chatMessages = [...chatMessages, msg].slice(-MAX_MESSAGES);
         maybeScrollToBottomImmediately();
@@ -156,10 +153,10 @@
 
     onMount(() => {
         updateKeybinds();
-        listen('chatReceive', addMessage);
+        listen('overlayChatMessage', addMessage);
         listen('key', handleKeyDown);
     });
-    listen("keybindChange", updateKeybinds);
+    listen("keybindChange" as keyof EventMap, updateKeybinds);
     afterUpdate(() => {
         if (isAtBottom) {
             container.scrollTop = container.scrollHeight;
@@ -171,7 +168,7 @@
         class="chat-hud {focus ? 'focused' : ''} {hasVisibleMessages ? 'visible' : 'hidden'}"
         style="
     --chat-width: 700px;
-    --chat-height: {$chatHeight}px;
+    --chat-height: {chatHeight.current}px;
     --line-height: 20px;
     --chat-scale: 1;
     --bg-opacity: 0.5
@@ -188,7 +185,7 @@
                         transition:fly|global={{duration: 500, x: -150, easing: expoInOut}}>
                     <span class="message-textData">
             <TextComponent
-                    textComponent={msg.textData}
+                    textComponent={msg.content}
                     fontSize={16}
                     allowPreformatting
             />
@@ -231,8 +228,7 @@
 
   .chat-hud.focused {
     transition: box-shadow 0.3s ease;
-    box-shadow: 0 4px 16px color-mix(in srgb, var(--primary-color) 50%, transparent),
-    inset 0 0 10px rgba(255, 255, 255, 0.05);
+    box-shadow: var(--box-shadow);
   }
 
   .messages-container {
@@ -245,7 +241,7 @@
     overflow: hidden;
     background-color: rgba($base, var(--bg-opacity));
     transform: scale(var(--chat-scale));
-    scroll-behavior: smooth;
+    justify-content: flex-end;
   }
 
   .chat-line {

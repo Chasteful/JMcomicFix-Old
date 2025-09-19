@@ -1,18 +1,22 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import type {ClientPlayerDataEvent, PlayerInventory, PlayerInventoryEvent} from "../../../../integration/events";
+    import type {
+        ClientPlayerDataEvent,
+        PlayerInventory,
+        ClientPlayerInventoryEvent
+    } from "../../../../integration/events";
     import type {ItemStack, PlayerData} from "../../../../integration/types";
     import {listen} from "../../../../integration/ws";
     import {getPlayerData, getPlayerInventory} from "../../../../integration/rest";
     import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
     import {elasticOut} from 'svelte/easing';
-    import {tweened} from 'svelte/motion';
+    import {Tween} from "svelte/motion";
 
     let lastSlot = 0;
     let currentSlot = 0;
     let playerData: PlayerData | null = null;
     let hotbar: ItemStack[] = [];
-    const glowIntensity = tweened(0, {
+    const glowIntensity = new Tween(0, {
         duration: 300,
         easing: elasticOut
     });
@@ -37,7 +41,7 @@
         }
     }
 
-    listen("clientPlayerInventory", (data: PlayerInventoryEvent) => {
+    listen("clientPlayerInventory", (data: ClientPlayerInventoryEvent) => {
         updateStacks(data.inventory);
     });
     listen("clientPlayerData", (event: ClientPlayerDataEvent) => {
@@ -53,7 +57,7 @@
 </script>
 
 
-<div class="hotbar-container hud-container" >
+<div class="hotbar-container hud-container">
     <div class="hotbar-track">
         {#each hotbar as stack, i (stack)}
             <div class="slot-wrapper" class:active={i === currentSlot}>
@@ -88,8 +92,7 @@
 
 
 <style lang="scss">
-  @import "../../../../colors";
-
+  @use "../../../../colors" as *;
 
 
   .hotbar-container {
@@ -99,6 +102,7 @@
     padding: 12px;
     overflow: hidden;
   }
+
   .selection-overlay {
     position: absolute;
     width: 100%;

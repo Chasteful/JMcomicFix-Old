@@ -21,7 +21,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat.autododge
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.once
@@ -38,8 +38,12 @@ import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen
 import net.minecraft.client.world.ClientWorld
 import net.minecraft.entity.Entity
+import net.minecraft.entity.projectile.LlamaSpitEntity
 import net.minecraft.entity.projectile.ArrowEntity
+import net.minecraft.entity.projectile.PersistentProjectileEntity
+import net.minecraft.entity.projectile.ProjectileEntity
 import net.minecraft.entity.projectile.SpectralArrowEntity
+import net.minecraft.entity.projectile.TridentEntity
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.Vec3d
 
@@ -54,22 +58,26 @@ object ModuleAutoDodge : ClientModule("AutoDodge", Category.COMBAT) {
     }
 
     private val ignore by multiEnumChoice("Ignore", Ignore.entries)
+    private val OnlyArrow by boolean("OnlyArrow", false)
+    private val ignoreOwn by boolean("IgnoreOwn", false)
 
     init {
         tree(AllowRotationChange)
         tree(AllowTimer)
     }
 
-    override val running: Boolean
-        get() =
-            super.running
-                // We aren't where we are because of blink. So this module shall not cause any disturbance in that case.
-                && !ModuleBlink.running
-                && !ModuleMurderMystery.disallowsArrowDodge()
-                && !(Ignore.OPEN_INVENTORY !in ignore
-                && (InventoryManager.isInventoryOpen || mc.currentScreen is GenericContainerScreen))
-                && !(Ignore.USING_ITEM !in ignore && player.isUsingItem)
-                && !(Ignore.USING_SCAFFOLD !in ignore && ModuleScaffold.running)
+    override val running: Boolean get() =
+        super.running
+            // We aren't where we are because of blink. So this module shall not cause any disturbance in that case.
+            && !ModuleBlink.running
+            && !ModuleMurderMystery.disallowsArrowDodge()
+            && !(Ignore.OPEN_INVENTORY !in ignore
+            && (InventoryManager.isInventoryOpen || mc.currentScreen is GenericContainerScreen))
+            && !(Ignore.USING_ITEM !in ignore && player.isUsingItem)
+            && !(Ignore.CLIMBING !in ignore && player.isClimbing)
+            && !(Ignore.USING_SCAFFOLD !in ignore && ModuleScaffold.running)
+
+    var dodging = false
 
     @Suppress("unused")
     val tickRep = handler<MovementInputEvent> { event ->
@@ -83,8 +91,13 @@ object ModuleAutoDodge : ClientModule("AutoDodge", Category.COMBAT) {
 
         val dodgePlan =
             planEvasion(DodgePlannerConfig(allowRotations = AllowRotationChange.enabled), inflictedHit)
-                ?: return@handler
 
+        if (dodgePlan == null) {
+            dodging = false
+            return@handler
+        }else{
+            dodging = true
+        }
         event.directionalInput = dodgePlan.directionalInput
 
         dodgePlan.yawChange?.let { yawChange ->
@@ -102,11 +115,20 @@ object ModuleAutoDodge : ClientModule("AutoDodge", Category.COMBAT) {
         }
     }
 
-    private fun ClientWorld.findFlyingArrows() = entities.filter { entity ->
-        (entity is ArrowEntity || entity is SpectralArrowEntity) && !entity.isInGround
+    fun ClientWorld.findFlyingArrows() = entities.filter { entity ->
+        val isRelevantProjectile = if (!OnlyArrow) {
+            entity is ProjectileEntity && (entity !is PersistentProjectileEntity || !entity.isOnGround)
+        } else {
+            entity is LlamaSpitEntity ||
+                (entity is ArrowEntity || entity is SpectralArrowEntity ||
+                    (entity is TridentEntity && entity.returnTimer == 0)) && !entity.isInGround
+        }
+
+        (isRelevantProjectile) && !(ignoreOwn && (entity as? ProjectileEntity)?.owner?.uuid == mc.player?.uuid)
     }
 
-    private fun <T : PlayerSimulation> getInflictedHits(
+
+    fun <T : PlayerSimulation> getInflictedHits(
         simulatedPlayer: T,
         arrows: List<Entity>,
         maxTicks: Int = 80,
@@ -209,11 +231,16 @@ object ModuleAutoDodge : ClientModule("AutoDodge", Category.COMBAT) {
         val arrowVelocity: Vec3d,
     )
 
+    override fun onDisabled() {
+        dodging = false
+        super.onDisabled()
+    }
     private enum class Ignore(
         override val choiceName: String
     ) : NamedChoice {
         OPEN_INVENTORY("OpenInventory"),
         USING_ITEM("UsingItem"),
+        CLIMBING("Climbing"),
         USING_SCAFFOLD("UsingScaffold")
     }
 }

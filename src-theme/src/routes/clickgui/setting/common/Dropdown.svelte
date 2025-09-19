@@ -2,6 +2,7 @@
     import {createEventDispatcher, afterUpdate} from "svelte";
     import {convertToSpacedString, spaceSeperatedNames} from "../../../../theme/theme_config";
     import {fade} from 'svelte/transition';
+    import {FadeIn, FadeOut} from "../../../../util/animate_utils";
     import {cubicOut} from "svelte/easing";
 
     export let name: string | null;
@@ -12,58 +13,19 @@
 
     let expanded = false;
     let optionRefs: HTMLElement[] = [];
+    let optionMaxHeight = '0px';
 
     function updateValue(v: string) {
         value = v;
         dispatch("change");
     }
 
-    function FadeIn(node: Element, {delay = 0, duration = 200, blurAmount = 4} = {}) {
-        return {
-            delay,
-            duration,
-            css: (t: number) => {
-                const eased = easeInBack(t);
-                return `
-                transform: scale(${1 - (1 - t) * 0.5});
-                opacity: ${eased};
-                backdrop-filter: blur(${(1 - t) * blurAmount}px);
-                transition-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
-                transform-origin: center;
-            `;
-            }
-        };
-    }
-
-    function FadeOut(node: Element, {delay = 0, duration = 200, blurAmount = 4} = {}) {
-        return {
-            delay,
-            duration,
-            css: (t: number) => {
-                const eased = easeInBack(1 - t);
-                return `
-                transform: scale(${1 - eased * 0.5});
-                opacity: ${1 - eased};
-                backdrop-filter: blur(${t * blurAmount}px);
-                transition-timing-function: cubic-bezier(0.68, -0.55, 0.27, 1.55);
-                transform-origin: center;
-            `;
-            }
-        };
-    }
-
-    function easeInBack(t: number): number {
-        const c1 = 1.5;
-        const c3 = c1 + 1;
-        return c3 * t * t * t - c1 * t * t;
-    }
-
     afterUpdate(() => {
         if (expanded && optionRefs.length > 0) {
-
+            const panelHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-height')) || window.innerHeight;
+            optionMaxHeight = `min(66vh, ${0.66 * panelHeight}px)`;
         }
     });
-
 
 </script>
 
@@ -90,12 +52,12 @@
         >
             <div
                     class="options"
+                    style="max-height: {optionMaxHeight}"
                     on:click|stopPropagation
                     in:FadeIn={{ duration: 200 }}
                     out:FadeOut={{ duration: 200 }}
-                    style="max-height: min(66vh, calc(0.66 * var(--panel-height, 100vh)))"
-
             >
+
                 {#each options as o, index (o)}
                     <div
                             class="option"
@@ -115,6 +77,7 @@
 </div>
 <style lang="scss">
   @use "../../../../colors.scss" as *;
+  @use "sass:color";
 
   .dropdown {
     position: relative;
@@ -202,7 +165,7 @@
       background: linear-gradient(
                       145deg,
                       rgba($base, 0.82) 0%,
-                      rgba(darken($base, 8%), 0.78) 100%
+                      rgba(color.adjust($base, $lightness: -8%), 0.78) 100%
       );
 
       mask-size: 100% 100%;

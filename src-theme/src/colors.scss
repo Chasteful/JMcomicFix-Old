@@ -1,10 +1,12 @@
+@use "sass:color";
+
 $base: rgb(20, 20, 20);
 $mantle: #181825;
 $crust: #11111b;
 $primary-color: #3962CD;
 $secondary-color: #1F8F6A;
 $accent: rgb(44, 121, 156);
-$accent-mix: mix($primary-color, $secondary-color, 50%);
+$accent-mix: color.mix($primary-color, $secondary-color, 50%);
 $liquid: #3962CD;
 $bounce: #1F8F6A;
 $clickgui-base-color: rgb(20, 20, 20);
@@ -58,3 +60,5 @@ $text-dimmed-color: rgba(211, 211, 211, 1);
 $text-color: rgb(255, 255, 255);
 $key-color: rgb(218, 218, 218);
 $item-damage-base-color: black;
+$player-entry-staff-color: rgb(255, 125, 125);
+$player-entry-friend-color: rgb(125, 255, 255);

@@ -6,9 +6,12 @@
     import {onMount} from "svelte";
     import {getModuleSettings, setModuleSettings, setModuleEnabled} from "../../integration/rest";
     import GenericSetting from "./setting/common/GenericSetting.svelte";
-    import {description as descriptionStore, highlightModuleName, scaleFactor} from "./clickgui_store";
-    import {slide} from "svelte/transition";
-    import {quintOut} from "svelte/easing";
+    import {
+        description as descriptionStore,
+        highlightModuleName,
+        scaleFactor,
+        moduleAutoCollapse
+    } from "./clickgui_store";
     import {convertToSpacedString, spaceSeperatedNames} from "../../theme/theme_config";
 
     export let name: string;
@@ -21,11 +24,10 @@
     let expanded: boolean = false;
     let configurable: ConfigurableSetting;
     let moduleNameElement: HTMLElement;
-
-
-    $: expanded = $expandedModuleName === name;
-
-
+    let hasSettings = false;
+    $: if ($moduleAutoCollapse) {
+        expanded = $expandedModuleName === name;
+    }
     highlightModuleName.subscribe((name) => {
         if (!modulesElement || !name) return;
 
@@ -44,12 +46,15 @@
         }, 1000);
     });
 
+    async function fetchModuleSettings() {
+        configurable = await getModuleSettings(name);
+        hasSettings = configurable.value.filter(v => v.name !== "Bind" && v.name !== "Hidden").length > 0;
+    }
 
     async function updateModuleSettings() {
         await setModuleSettings(name, configurable);
-        configurable = await getModuleSettings(name);
+        await fetchModuleSettings();
     }
-
 
     async function toggleModule() {
         await setModuleEnabled(name, !enabled);
@@ -88,22 +93,56 @@
     }
 
     async function toggleExpanded() {
-        if (get(expandedModuleName) === name) {
-            expandedModuleName.set(null);
+        if ($moduleAutoCollapse) {
+            const panelId = moduleNameElement.closest("[data-panel-id]")?.getAttribute("data-panel-id");
+
+            if (get(expandedModuleName) === name) {
+                expandedModuleName.set(null);
+                await setItem(path, "false");
+            } else {
+
+                document.querySelectorAll(`[data-panel-id="${panelId}"] [data-module-name]`).forEach(el => {
+                    const key = `clickgui.${el.getAttribute("data-module-name")}`;
+                    localStorage.setItem(key, "false");
+                })
+
+                expandedModuleName.set(name);
+                await setItem(path, "true");
+            }
         } else {
-            expandedModuleName.set(name);
+
+            expanded = !expanded;
+            await setItem(path, expanded.toString());
         }
-        await setItem(path, (get(expandedModuleName) === name).toString());
     }
 
+
     onMount(async () => {
-        configurable = await getModuleSettings(name);
+        await fetchModuleSettings();
+
+        setTimeout(() => {
+            if ($moduleAutoCollapse) {
+                document.querySelectorAll("[data-panel-id]").forEach(panel => {
+                    const firstModule = panel.querySelector<HTMLElement>("[data-module-name]");
+                    if (firstModule) {
+                        const firstName = firstModule.getAttribute("data-module-name");
+                        if (firstName) {
+                            localStorage.setItem(`clickgui.${firstName}`, "true");
+                            if (firstName === name) expanded = true;
+                        }
+                    }
+                });
+            } else {
+                expanded = localStorage.getItem(path) === "true";
+            }
+        }, 500);
     });
 </script>
 
 <div
-        class="module" class:expanded
-        class:has-settings={configurable?.value.length > 2}
+        class="module"
+        class:expanded
+        class:has-settings={hasSettings}
         data-module-name={name}
 
 >
@@ -120,11 +159,7 @@
             on:mouseleave={() => descriptionStore.set(null)}
     >
   <span class="name-inner">
-    {#if $spaceSeperatedNames}
-      {convertToSpacedString(name)}
-    {:else}
-      {name}
-    {/if}
+ {$spaceSeperatedNames ? convertToSpacedString(name) : name}
   </span>
     </div>
 
@@ -132,7 +167,7 @@
         <div class="settings-wrapper">
             <div class="settings">
                 {#each configurable.value as setting (setting.name)}
-                    <GenericSetting skipAnimationDelay={true} {path} bind:setting on:change={updateModuleSettings}/>
+                    <GenericSetting {path} bind:setting on:change={updateModuleSettings}/>
                 {/each}
             </div>
         </div>
@@ -194,24 +229,29 @@
       transition: all 0.3s ease-out;
     }
 
-    &.has-settings .name::after {
-      content: "";
-      position: absolute;
-      right: 15px;
-      top: 50%;
-      border-radius: 10px;
-      width: 10px;
-      height: 10px;
-      background-size: contain;
-      background-repeat: no-repeat;
-      transform: translateY(-50%) rotate(-90deg);
-      opacity: 0.5;
-      transition: transform 0.4s ease, opacity 0.2s ease;
-    }
+    &.has-settings {
+      .name::after {
+        content: "";
+        display: block;
+        position: absolute;
+        height: 10px;
+        width: 10px;
+        right: 15px;
+        top: 50%;
+        background-image: url("/img/clickgui/icon-settings-expand.svg");
+        background-position: center;
+        background-repeat: no-repeat;
+        opacity: 0.5;
+        transform-origin: 50% 50%;
+        transform: translateY(-50%) rotate(-90deg);
+        transition: ease opacity 0.2s,
+        ease transform 0.4s;
+      }
 
-    &.expanded.has-settings .name::after {
-      transform: translateY(-50%) rotate(0);
-      opacity: 1;
+      &.expanded .name::after {
+        transform: translateY(-50%) rotate(0);
+        opacity: 1;
+      }
     }
 
     .settings-wrapper {
@@ -256,7 +296,7 @@
       }
 
       &.enabled {
-        background: linear-gradient(135deg,
+        background: linear-gradient(135deg in oklch,
                 color-mix(in srgb, var(--primary-color) 30%, transparent) 0%,
                 color-mix(in srgb, var(--secondary-color) 30%, transparent) 51%,
                 color-mix(in srgb, var(--primary-color) 30%, transparent) 100%
@@ -281,7 +321,7 @@
 
       &.highlight {
         color: white;
-        background: linear-gradient(135deg,
+        background: linear-gradient(135deg in oklch,
                 color-mix(in srgb, var(--secondary-color) 50%, transparent),
                 color-mix(in srgb, var(--primary-color) 50%, transparent));
         animation: highlight-flash 1.2s ease-out 1;

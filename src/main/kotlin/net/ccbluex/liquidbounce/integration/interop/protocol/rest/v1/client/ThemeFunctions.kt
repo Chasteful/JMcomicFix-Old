@@ -25,15 +25,28 @@ import com.thealtening.api.retriever.DataRetriever.gson
 import io.netty.handler.codec.http.FullHttpResponse
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.gson.util.emptyJsonObject
+import net.ccbluex.liquidbounce.config.gson.accessibleInteropGson
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.netty.http.model.RequestObject
 import net.ccbluex.netty.http.util.*
 
-// GET /api/v1/client/theme
+// GET /api/v1/client/theme/:id
 @Suppress("UNUSED_PARAMETER")
-fun getThemeInfo(requestObject: RequestObject): FullHttpResponse = httpOk(JsonObject().apply {
-    addProperty("activeTheme", ThemeManager.activeTheme.name)
+fun getTheme(requestObject: RequestObject): FullHttpResponse {
+    val id = requestObject.params["id"]
+    val theme = if (id != null) {
+        ThemeManager.themes.find { it.metadata.id == id } ?: return httpNotFound(id, "Theme not found")
+    } else {
+        ThemeManager.theme
+    }
+
+    return httpOk(accessibleInteropGson.toJsonTree(theme))
+}
+
+// GET /api/v1/client/shader
+@Suppress("UNUSED_PARAMETER")
+fun getToggleShaderInfo(requestObject: RequestObject): FullHttpResponse = httpOk(JsonObject().apply {
     addProperty("shaderEnabled", ThemeManager.shaderEnabled)
 })
 
@@ -41,9 +54,8 @@ fun getThemeInfo(requestObject: RequestObject): FullHttpResponse = httpOk(JsonOb
 @Suppress("UNUSED_PARAMETER")
 fun postToggleShader(requestObject: RequestObject): FullHttpResponse {
     ThemeManager.shaderEnabled = !ThemeManager.shaderEnabled
-    ThemeManager.initializeBackground()
-    ConfigSystem.storeConfigurable(ThemeManager)
-    return httpOk(emptyJsonObject())
+    ConfigSystem.store(ThemeManager)
+    return httpNoContent()
 }
 
 @Suppress("UNUSED_PARAMETER")
@@ -61,8 +73,7 @@ fun postSetShaderEnabled(requestObject: RequestObject): FullHttpResponse {
     val enabled = json.get("enabled")?.asBoolean ?: return httpBadRequest("Missing 'enabled' field")
 
     ThemeManager.shaderEnabled = enabled
-    ThemeManager.initializeBackground()
-    ConfigSystem.storeConfigurable(ThemeManager)
+    ConfigSystem.store(ThemeManager)
 
     return httpOk(emptyJsonObject())
 }

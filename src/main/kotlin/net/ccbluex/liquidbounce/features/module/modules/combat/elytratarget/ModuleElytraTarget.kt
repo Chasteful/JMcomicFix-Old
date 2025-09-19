@@ -70,6 +70,7 @@ object ModuleElytraTarget : ClientModule("ElytraTarget", Category.COMBAT) {
     @Suppress("unused")
     private val targetUpdateHandler = tickHandler {
         targetTracker.reset()
+        targetRenderer.reset()
         targetTracker.selectFirst { potentialTarget ->
             player.canSee(potentialTarget)
         }
@@ -79,7 +80,8 @@ object ModuleElytraTarget : ClientModule("ElytraTarget", Category.COMBAT) {
         }
     }
 
-    override fun disable() {
+    override fun onDisabled() {
         targetTracker.reset()
+        targetRenderer.reset()
     }
 }

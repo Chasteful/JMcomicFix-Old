@@ -2,6 +2,8 @@ package net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect
 
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.randomUsername
+import net.ccbluex.liquidbounce.utils.kotlin.mapArray
+import net.ccbluex.liquidbounce.utils.kotlin.unmodifiable
 import org.ahocorasick.trie.Emit
 import org.ahocorasick.trie.Trie
 import java.nio.ByteBuffer
@@ -61,15 +63,19 @@ class NameProtectMappings {
         val currentMapping = HashMap<String, MappingData>(otherPlayers.size + friendMappings.size)
 
         otherPlayers.subList(0, 200.coerceAtMost(otherPlayers.size)).forEach { playerName ->
-            // Prevent DoS attacks
-            if (playerName.length !in 3..20) {
-                return@forEach
-            }
+            if (playerName.length !in 3..20) return@forEach
 
             val rng = getEntropySourceFrom(playerName)
 
-            currentMapping[playerName] = MappingData(randomUsername(16, rng), coloringInfo.otherPlayers)
+            val newName = if (ModuleNameProtect.ReplaceOthers.othersApplyGarbled) {
+                ModuleNameProtect.getGarbledName(playerName)
+            } else {
+                randomUsername(16, rng)
+            }
+
+            currentMapping[playerName] = MappingData(newName, coloringInfo.otherPlayers)
         }
+
 
         friendMappings.forEach { (name, replacement) ->
             currentMapping[name] = MappingData(replacement, coloringInfo.friends)
@@ -95,8 +101,9 @@ class NameProtectMappings {
         val currentInstructions = this.replacementInstructions ?: return emptyList()
 
         return currentInstructions.matcher.parseText(text)
-            .map { it to currentInstructions.replacements[it.keyword]!! }
-            .sortedBy { it.first.start }
+            .mapArray { it to currentInstructions.replacements[it.keyword]!! }
+            .apply { sortBy { it.first.start } }
+            .unmodifiable()
     }
 
     /**

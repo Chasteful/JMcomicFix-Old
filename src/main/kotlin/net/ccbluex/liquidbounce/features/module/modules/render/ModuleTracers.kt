@@ -18,7 +18,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.misc.FriendManager
@@ -29,10 +29,9 @@ import net.ccbluex.liquidbounce.render.GenericSyncColorMode
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.utils.combat.EntityTaggingManager
-import net.ccbluex.liquidbounce.utils.combat.shouldBeShown
+import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
 import net.ccbluex.liquidbounce.utils.math.toVec3
-import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.util.math.MathHelper
@@ -68,7 +67,19 @@ object ModuleTracers : ClientModule("Tracers", Category.RENDER) {
         }
     }
 
+    override fun onEnabled() {
+        RenderedEntities.subscribe(this)
+    }
+
+    override fun onDisabled() {
+        RenderedEntities.unsubscribe(this)
+    }
+
     val renderHandler = handler<WorldRenderEvent> { event ->
+        if (RenderedEntities.isEmpty()) {
+            return@handler
+        }
+
         val matrixStack = event.matrixStack
         val useDistanceColor = DistanceColor.isSelected
 
@@ -78,10 +89,9 @@ object ModuleTracers : ClientModule("Tracers", Category.RENDER) {
             } else {
                 DistanceColor.customViewDistance
             })
-        val entities = world.entities.filter(this::shouldRenderTrace)
+
         val camera = mc.gameRenderer.camera
 
-        if (entities.isEmpty()) return@handler
 
         renderEnvironmentForWorld(matrixStack) {
             val eyeVec = Vec3(0.0, 0.0, 1.0)
@@ -89,11 +99,9 @@ object ModuleTracers : ClientModule("Tracers", Category.RENDER) {
                 .rotateYaw((-Math.toRadians(camera.yaw.toDouble())).toFloat())
 
             longLines {
-                for (entity in entities) {
-                    if (entity !is LivingEntity) continue
-
-                    val dist = player.distanceTo(entity) * 2.0F
+                for (entity in RenderedEntities) {
                     val tagColor = EntityTaggingManager.getTag(entity).color
+                    val dist = player.distanceTo(entity) * 2.0F
                     val friendColor = if (entity is PlayerEntity &&
                         FriendManager.isFriend(entity.gameProfile.name)
                     ) {
@@ -154,8 +162,6 @@ object ModuleTracers : ClientModule("Tracers", Category.RENDER) {
                 }
             }
         }
-    }
 
-    @JvmStatic
-    fun shouldRenderTrace(entity: Entity) = entity.shouldBeShown()
+    }
 }

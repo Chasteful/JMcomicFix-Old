@@ -1,9 +1,9 @@
 package net.ccbluex.liquidbounce.features.module.modules.movement.speed
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.features.misc.HideAppearance.isDestructed
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -23,7 +23,7 @@ import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.ant
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.martix.SpeedMatrix
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.ncp.SpeedNCP
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.sentinel.SpeedSentinelDamage
-import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.spartan.SpeedSpartan
+import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.spartan.SpeedSpartanV4043
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.verus.SpeedVerus
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.vulcan.SpeedVulcan
 import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.anticheat.watchdog.SpeedHypxiel
@@ -31,6 +31,7 @@ import net.ccbluex.liquidbounce.features.module.modules.movement.speed.modes.ser
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.combat.CombatManager
+import java.util.function.BooleanSupplier
 
 /**
  * Speed module
@@ -70,7 +71,7 @@ object ModuleSpeed : ClientModule("Speed", Category.MOVEMENT) {
         SpeedNCP(configurable),
 
         SpeedSentinelDamage(configurable),
-        SpeedSpartan(configurable),
+        SpeedSpartanV4043(configurable),
 
         SpeedVerus(configurable),
         SpeedVulcan(configurable)
@@ -94,20 +95,18 @@ object ModuleSpeed : ClientModule("Speed", Category.MOVEMENT) {
             // prevents accessing player when it's null below
             // in case it was forgotten to be checked
             return when {
-                !super.running -> false
+                !(super.running || ModuleScaffold.running && ModuleScaffold.autoSpeed) -> false
                 !passesRequirements() -> false
                 OnlyInCombat.enabled && CombatManager.isInCombat -> false
                 OnlyOnPotionEffect.enabled && potionEffects.activeChoice.checkPotionEffects() -> false
-                else -> {
-                    true
-                }
+                else -> true
             }
         }
 
     private fun passesRequirements() = when {
         // DO NOT REMOVE - PLAYER COULD BE NULL!
         !inGame || isDestructed -> false
-        else -> notCondition.all { it.testCondition() }
+        else -> notCondition.all { it.testCondition.asBoolean }
     }
 
     private object OnlyInCombat : ToggleableConfigurable(this, "OnlyInCombat", false) {
@@ -172,7 +171,7 @@ object ModuleSpeed : ClientModule("Speed", Category.MOVEMENT) {
     @Suppress("unused")
     private enum class NotCondition(
         override val choiceName: String,
-        val testCondition: () -> Boolean
+        val testCondition: BooleanSupplier
     ) : NamedChoice {
         WHILE_USING_ITEM("WhileUsingItem", {
             !player.isUsingItem

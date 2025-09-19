@@ -22,12 +22,19 @@ import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.AttackEntityEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
+import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.TargetChangeEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAimbot
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura
+import net.ccbluex.liquidbounce.features.module.modules.combat.tpaura.ModuleTpAura.mc
+import net.ccbluex.liquidbounce.features.module.modules.combat.tpaura.ModuleTpAura.targetSelector
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerData
+import net.ccbluex.liquidbounce.utils.client.player
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.player.PlayerEntity
+import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket
 
 /**
  * A rotation manager
@@ -42,8 +49,11 @@ object CombatManager : EventListener {
 
     // useful for autoblock
     private var pauseBlocking: Int = 0
+    private var receiveHitTicks = 0
 
+    const val RECEIVE_HIT_TICKS = 50
     const val PAUSE_COMBAT = 40 // 40 ticks = 2 seconds
+
     var duringCombat: Int = 0
 
     private fun updatePauseRotation() {
@@ -79,10 +89,39 @@ object CombatManager : EventListener {
         // TODO: implement this for killaura autoblock and other
         updatePauseBlocking()
         updateDuringCombat()
+        updateReceiveHit()
     }
-
     val tickHandler = handler<GameTickEvent> {
         update()
+        val player = mc.player ?: return@handler
+        if (player.hurtTime > 0) {
+            receiveHitForAtLeast()
+        }
+        val target =(ModuleKillAura.targetTracker.target
+            ?: ModuleAimbot.targetTracker.target
+            ) as? PlayerEntity ?: return@handler
+        EventManager.callEvent(
+            TargetChangeEvent(
+                PlayerData.fromPlayer(target),
+                player.distanceTo(target)
+            )
+        )
+    }
+    private fun updateReceiveHit() {
+        if (receiveHitTicks > 0) receiveHitTicks--
+    }
+
+    fun receiveHitForAtLeast(ticks: Int = RECEIVE_HIT_TICKS) {
+        receiveHitTicks = receiveHitTicks.coerceAtLeast(ticks)
+    }
+
+
+    val packetHandler = handler<PacketEvent> { event ->
+        val player = mc.player ?: return@handler
+        val packet = event.packet
+        if (packet is EntityVelocityUpdateS2CPacket && packet.entityId == player.id) {
+            receiveHitForAtLeast()
+        }
     }
 
     @Suppress("unused")
@@ -93,7 +132,12 @@ object CombatManager : EventListener {
             duringCombat = PAUSE_COMBAT
 
             if (entity is PlayerEntity) {
-                EventManager.callEvent(TargetChangeEvent(PlayerData.fromPlayer(entity)))
+                EventManager.callEvent(
+                    TargetChangeEvent(
+                        PlayerData.fromPlayer(entity),
+                        player.distanceTo(entity)
+                    )
+                )
             }
         }
     }
@@ -107,6 +151,8 @@ object CombatManager : EventListener {
     val isInCombat: Boolean
         get() = this.duringCombat > 0 ||
             (ModuleKillAura.running && ModuleKillAura.targetTracker.target != null)
+    val isReceiveHit: Boolean
+        get() = receiveHitTicks > 0
 
     fun pauseCombatForAtLeast(pauseTime: Int) {
         pauseCombat = pauseCombat.coerceAtLeast(pauseTime)

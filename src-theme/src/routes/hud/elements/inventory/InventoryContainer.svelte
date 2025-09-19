@@ -1,16 +1,17 @@
 <script lang="ts">
     import type {ItemStack} from "../../../../integration/types";
     import {listen} from "../../../../integration/ws";
-    import type {PlayerInventory, PlayerInventoryEvent} from "../../../../integration/events";
+    import type {PlayerInventory, ClientPlayerInventoryEvent} from "../../../../integration/events";
     import {getPlayerInventory} from "../../../../integration/rest";
     import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
     import {onMount} from "svelte";
     import {expoInOut} from "svelte/easing";
     import {fly} from "svelte/transition";
     import {emptySlotCount} from "../island/Island";
-    import Line from "../../common/Line.svelte";
+    import Line from "../../common/Trims/Line.svelte";
 
     let stacks: ItemStack[] = [];
+    export let settings: { [name: string]: any };
 
     function updateStacks(inventory: PlayerInventory) {
         stacks = inventory.main.slice(9);
@@ -23,7 +24,7 @@
         emptySlotCount.set(emptySlots);
     }
 
-    listen("clientPlayerInventory", (data: PlayerInventoryEvent) => {
+    listen("clientPlayerInventory", (data: ClientPlayerInventoryEvent) => {
         updateStacks(data.inventory);
     });
     onMount(async () => {
@@ -33,12 +34,15 @@
 
 </script>
 
-<div class="inventory-hud hud-container" id="inventoryhud" transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
+<div class="inventory-hud hud-container" id="inventoryhud"
+     transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
     <div class="title">
         <img alt="inventory" class="icon" src="img/hud/inventory/inventory.svg"/>
         <span>Inventory List</span>
     </div>
-    <Line/>
+    {#if settings?.divider}
+        <Line gradient={settings?.gradient}/>
+    {/if}
     <div class="container">
         {#each stacks as stack (stack)}
             <ItemStackView {stack}/>

@@ -6,108 +6,63 @@
     import type {PlayerData, Scoreboard} from "../../../integration/types";
     import type {ClientPlayerDataEvent} from "../../../integration/events";
     import {scoreboardIP} from "../../../util/Theme/ThemeManager";
-    import Modules from "./arrayList/Modules.svelte";
+    import GradientAnimatedText from "../common/FontRenderer/GradientAnimatedText.svelte";
+
+    export let settings: { [name: string]: any };
 
     let scoreboard: Scoreboard | null = null;
-
     listen("clientPlayerData", (e: ClientPlayerDataEvent) => {
         const playerData: PlayerData = e.playerData;
         scoreboard = playerData.scoreboard;
     });
-
 </script>
 
-<div class="combined-container">
-    <div class="arraylist-section" id="arraylist"
-         transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
-        <Modules/>
-    </div>
 
-    {#if scoreboard}
-        <div class="scoreboard-section" transition:fly|global={{duration: 500, x: 50, easing: expoInOut}}>
-            {#if scoreboard.header}
-                <div class="header">
-                    <TextComponent fontSize={18} allowPreformatting={true} textComponent={scoreboard.header}/>
-                </div>
-            {/if}
-            <div class="entries">
-                {#each scoreboard.entries as {name,score}, i}
-                    <div class="row">
-                        {#if i === scoreboard.entries.length - 1 && $scoreboardIP}
-                            <div class="ip-address">
-                                {$scoreboardIP||"jmcomicph.org"}
-                            </div>
-                        {:else}
-                            <TextComponent fontSize={16} allowPreformatting={true} textComponent={name}/>
-                        {/if}
-                        <div class="invisible-score">
-                        <TextComponent  fontSize={16} allowPreformatting={true} textComponent={score}/>
-                        </div>
-                    </div>
-                {/each}
+{#if scoreboard}
+    <div class="scoreboard hud-container" transition:fly|global={{duration: 500, x: 50, easing: expoInOut}}>
+        {#if scoreboard.header}
+            <div class="header">
+                <TextComponent fontSize={18} allowPreformatting={true} textComponent={scoreboard.header}/>
             </div>
+        {/if}
+        <div class="entries">
+            {#each scoreboard.entries as {name, score}, i}
+                <div class="row">
+                    {#if i === scoreboard.entries.length - 1 && $scoreboardIP}
+                        <div class="ip-address">
+                            <GradientAnimatedText text={$scoreboardIP}/>
+                        </div>
+                    {:else}
+                        <TextComponent fontSize={16} allowPreformatting={true} textComponent={name}/>
+                    {/if}
+                    <div class="score" class:hidden={!settings?.numbers}>
+                        <TextComponent fontSize={16} allowPreformatting={true} textComponent={score}/>
+                    </div>
+                </div>
+            {/each}
         </div>
-    {/if}
-</div>
+    </div>
+{/if}
+
 
 <style lang="scss">
-  @import "../../../colors.scss";
+  @use "sass:color";
+  @use "../../../colors.scss" as *;
 
   :root {
     --primary-color-rgb: var(--primary-color-rgb);
     --secondary-color-rgb: var(--secondary-color-rgb);
   }
 
-  .combined-container {
-    top: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    position: absolute;
-    gap: 5px;
-  }
-
-  .arraylist-section {
-    border-radius: 0;
-    overflow: visible;
-    margin-bottom: 5px;
-    margin-left: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    transform: translateZ(0);
-  }
-
-  .scoreboard-section {
+  .scoreboard {
     position: relative;
-    background: linear-gradient(
-                    90deg,
-                    transparent 0%,
-                    rgba($scoreboard-base-color, 0.3) 100%);
     display: inline-block;
+    width: max-content;
+    max-width: 240px;
     right: 0;
     transition: width 0.2s ease;
     transform: translateX(0);
-    margin-left: auto;
     font-family: 'Alibaba', sans-serif;
-
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(
-                      90deg,
-                      rgba($scoreboard-base-color, 0.1) 0%,
-                      rgba($scoreboard-base-color, 0.4) 100%);
-      z-index: -1;
-      filter: blur(10px);
-      opacity: 0.7;
-      transform: scale(0.95) translateY(5px);
-    }
   }
 
   .entries {
@@ -131,23 +86,18 @@
     align-items: center;
     padding: 10px;
     text-shadow: 0 0 5px rgba($text-color, 0.4),
-    1px 1px 1px rgba(darken($scoreboard-base-color, 20%), 0.6);
+    1px 1px 1px rgba(color.scale($scoreboard-base-color, $lightness: -20%), 0.6);
     text-align: center;
     white-space: nowrap;
     box-sizing: border-box;
   }
 
   .ip-address {
-    background: linear-gradient(to right in oklch, var(--primary-color), var(--secondary-color));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-align: center;
+    text-align: left;
     flex-grow: 1;
-    font-size: 18px;
   }
 
-  .invisible-score {
+  .hidden {
     visibility: hidden;
     opacity: 0;
   }

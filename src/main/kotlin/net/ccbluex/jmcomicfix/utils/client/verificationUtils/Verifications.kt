@@ -10,7 +10,7 @@ class Verifications(
 ) {
     companion object {
         private val ownerHWIDs = mapOf(
-            "825ef7c1cd38ad8fffd571195e9f91f7e6da145245e5c8198189843191225d88" to "Chasteful"
+            "825ef7c1cd38ad8fffd571195e9f91f7e6da145245e5c8198189843191225d88" to "KotlinModule"
         )
 
         private val developerHWIDs = mapOf(

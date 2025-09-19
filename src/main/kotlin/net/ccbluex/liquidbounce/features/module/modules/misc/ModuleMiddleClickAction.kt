@@ -18,9 +18,11 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
-import net.ccbluex.liquidbounce.config.types.Choice
-import net.ccbluex.liquidbounce.config.types.ChoiceConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
+import net.ccbluex.liquidbounce.event.events.PlayerInteractedItemEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -36,6 +38,8 @@ import net.ccbluex.liquidbounce.utils.inventory.Slots
 import net.ccbluex.liquidbounce.utils.inventory.useHotbarSlotOrOffhand
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Items
+import net.minecraft.util.ActionResult
+import net.minecraft.util.Hand
 
 /**
  * MiddleClickAction module
@@ -54,14 +58,14 @@ object ModuleMiddleClickAction : ClientModule(
 
     private val mode = choices(this, "Mode", FriendClicker, arrayOf(FriendClicker, Pearl))
 
-    override fun disable() {
+    override fun onDisabled() {
         Pearl.disable()
     }
 
     object Pearl : Choice("Pearl") {
 
         private val slotResetDelay by int("SlotResetDelay", 1, 0..10, "ticks")
-
+        private val stopOnSubmit by floatRange("StopOnSubmit",85F..90F,60F..90F,"Pitch")
         var wasPressed = false
 
         val repeatable = tickHandler {
@@ -70,23 +74,35 @@ object ModuleMiddleClickAction : ClientModule(
                 return@tickHandler
             }
 
+            if ( player.pitch in stopOnSubmit) {
+                wasPressed = false
+                return@tickHandler
+            }
+
             val pickup = mc.options.pickItemKey.isPressed
 
             if (pickup) {
                 // visually select the slot
-                val slot = Slots.Hotbar.findSlot(Items.ENDER_PEARL)?.hotbarSlotForServer ?: return@tickHandler
+                val slot = Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL) ?: return@tickHandler
                 SilentHotbar.selectSlotSilently(this, slot, slotResetDelay)
                 wasPressed = true
             } else if (wasPressed) { // the key was released
-                Slots.Hotbar.findSlot(Items.ENDER_PEARL)?.let {
+                Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL)?.let {
                     useHotbarSlotOrOffhand(it, slotResetDelay)
                 }
-
+                EventManager.callEvent(
+                    PlayerInteractedItemEvent(
+                        player = mc.player!!,
+                        hand = Hand.MAIN_HAND,
+                        actionResult = ActionResult.SUCCESS,
+                    )
+                )
                 wasPressed = false
             }
         }
 
-        val handler = handler<WorldChangeEvent> {
+       @Suppress("unused")
+       private val handler = handler<WorldChangeEvent> {
             wasPressed = false
         }
 
@@ -97,7 +113,7 @@ object ModuleMiddleClickAction : ClientModule(
         fun cancelPick(): Boolean {
             return ModuleMiddleClickAction.running &&
                 mode.activeChoice == this &&
-                Slots.Hotbar.findSlot(Items.ENDER_PEARL) != null
+                Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL) != null
         }
 
         override val parent: ChoiceConfigurable<*>

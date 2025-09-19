@@ -23,13 +23,16 @@ package net.ccbluex.liquidbounce.utils.client
 
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
+import net.ccbluex.liquidbounce.event.events.ProgressEvent
 import net.ccbluex.liquidbounce.features.command.Command
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.injection.mixins.minecraft.gui.MixinChatScreenAccessor
 import net.ccbluex.liquidbounce.injection.mixins.minecraft.text.MixinMutableTextAccessor
 import net.ccbluex.liquidbounce.interfaces.ClientTextColorAdditions
 import net.ccbluex.liquidbounce.lang.translation
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.utils.kotlin.unmodifiable
 import net.minecraft.client.MinecraftClient
 import net.minecraft.client.gui.screen.ChatScreen
 import net.minecraft.text.*
@@ -38,9 +41,15 @@ import net.minecraft.util.Util
 import java.io.File
 
 // Chat formatting
-private val clientPrefix: Text = Text.empty()
+private fun getClientPrefix(): Text = Text.empty()
     .formatted(Formatting.RESET, Formatting.GRAY)
-    .append(gradientText("LiquidBounce", Color4b.fromHex("#4677ff"), Color4b.fromHex("#24AA7F")))
+    .append(
+        gradientText(
+            ModuleHud.clientName.ifEmpty { "JMcomicFix" },
+            ModuleHud.getThemeColor().first,
+            ModuleHud.getThemeColor().second
+        )
+    )
     .append(Text.literal(" ▸ ").formatted(Formatting.RESET, Formatting.GRAY))
 
 fun regular(text: MutableText): MutableText = text.formatted(Formatting.GRAY)
@@ -179,10 +188,18 @@ data class MessageMetadata(
     val id: String? = null,
     val remove: Boolean = true,
     val count: Int = 1
-)
+) {
+    companion object {
+        @JvmStatic
+        fun byModule(module: ClientModule) = MessageMetadata(id = "M${module.name}#info")
+
+        @JvmStatic
+        fun byCommand(command: Command) = MessageMetadata(id = "C${command.name}#info")
+    }
+}
 
 fun chat(text: Text, metadata: MessageMetadata = defaultMessageMetadata) {
-    val realText = if (metadata.prefix) clientPrefix.copy().append(text) else text
+    val realText = if (metadata.prefix) getClientPrefix().copy().append(text) else text
 
     if (mc.player == null) {
         logger.info("(Chat) ${realText.convertToString()}")
@@ -203,14 +220,14 @@ fun chat(text: Text, metadata: MessageMetadata = defaultMessageMetadata) {
  */
 fun chat(vararg texts: Text, metadata: MessageMetadata = defaultMessageMetadata) {
     val text: Text = MixinMutableTextAccessor.create(
-        PlainTextContent.EMPTY, texts.asList(), Style.EMPTY
+        PlainTextContent.EMPTY, texts.unmodifiable(), Style.EMPTY
     )
     chat(text, metadata)
 }
 
-fun chat(text: Text, module: ClientModule) = chat(text, metadata = MessageMetadata(id = "M${module.name}#info"))
+fun chat(text: Text, module: ClientModule) = chat(text, metadata = MessageMetadata.byModule(module))
 
-fun chat(text: Text, command: Command) = chat(text, metadata = MessageMetadata(id = "C${command.name}#info"))
+fun chat(text: Text, command: Command) = chat(text, metadata = MessageMetadata.byCommand(command))
 
 fun chat(text: String, module: ClientModule) = chat(text.asText(), module)
 
@@ -227,9 +244,21 @@ fun notification(title: String, message: Text, severity: NotificationEvent.Sever
 fun notification(title: String, message: String, severity: NotificationEvent.Severity) =
     EventManager.callEvent(NotificationEvent(title, message, severity))
 
+fun progress(title: String, progress: Float, maxProgress: Float = 1f, timeRemaining: Long? = null) =
+    EventManager.callEvent(ProgressEvent(title, progress, maxProgress, timeRemaining))
+
+fun progress(title: Text, progress: Float, maxProgress: Float = 1f, timeRemaining: Long? = null) =
+    EventManager.callEvent(ProgressEvent(title.string, progress, maxProgress, timeRemaining))
 /**
  * Joins a list of [Text] into a single [Text] with the given [separator].
  */
+private val messageCounts = mutableMapOf<String, Int>()
+
+ fun getNextCount(id: String): Int {
+    val current = messageCounts.getOrDefault(id, 0) + 1
+    messageCounts[id] = current
+    return current
+}
 fun List<Text>.joinToText(separator: Text): MutableText {
     val result = Text.empty()
     if (isEmpty()) {

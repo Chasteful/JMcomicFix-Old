@@ -19,7 +19,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.config.types.ToggleableConfigurable
+import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
@@ -56,6 +56,12 @@ object ScaffoldSprintControlFeature : ToggleableConfigurable(ModuleScaffold, "Sp
          * This mode will stop sprinting on place.
          */
         NO_SPRINT_ON_PLACE("NoSprintOnPlace"),
+
+        /**
+         * This mod will stop sprinting when the player is
+         * grounded.
+         */
+        NO_SPRINT_ON_GROUND("NoSprintOnGround"),
 
     }
 
@@ -100,7 +106,11 @@ object ScaffoldSprintControlFeature : ToggleableConfigurable(ModuleScaffold, "Sp
                     event.sprint = false
                 }
 
-                SprintMode.DO_NOT_CHANGE -> {}
+                SprintMode.NO_SPRINT_ON_GROUND -> {
+                    event.sprint = !player.isOnGround
+                }
+
+                SprintMode.DO_NOT_CHANGE -> { }
 
             }
         }
@@ -122,7 +132,11 @@ object ScaffoldSprintControlFeature : ToggleableConfigurable(ModuleScaffold, "Sp
                     event.sprint = false
                 }
 
-                SprintMode.DO_NOT_CHANGE -> {}
+                SprintMode.NO_SPRINT_ON_GROUND -> {
+                    event.sprint = !player.isOnGround
+                }
+
+                SprintMode.DO_NOT_CHANGE -> { }
             }
         }
     }

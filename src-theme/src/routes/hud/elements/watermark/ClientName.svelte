@@ -4,6 +4,7 @@
     import type {ClientInfo} from "../../../../integration/types";
 
     export let clientInfo: ClientInfo;
+    export let glow = false
 </script>
 <svg aria-hidden="true" height="0" width="0">
     <filter height="500%" id="glow" primitiveUnits="objectBoundingBox" width="200%" x="-50%" y="-200%">
@@ -12,12 +13,12 @@
         <feBlend in="SourceGraphic" in2="saturated" mode="normal"/>
     </filter>
 </svg>
-<div class="client client-glow" in:fade>
-    { $clientName || "禁漫修复" } {clientInfo.clientVersion}
+<div class="client" class:client-glow={glow} in:fade>
+    {$clientName ? $clientName : `禁漫修復 ${clientInfo?.clientVersion ?? ''}`}
 </div>
 
 <style lang="scss">
-  @import "../../../../colors";
+  @use "../../../../colors" as *;
 
   @property --k {
     syntax: '<number>';
@@ -53,5 +54,6 @@
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     text-transform: uppercase;
+    color: white;
   }
 </style>
