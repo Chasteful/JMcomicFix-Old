@@ -1,11 +1,9 @@
 import { writable, derived, type Writable, type Readable } from 'svelte/store';
 import { getModuleSettings } from '../../integration/rest';
 import { listen } from '../../integration/ws';
-import type { ConfigurableSetting, MultiChooseSetting, TextSetting } from '../../integration/types';
+import type { ConfigurableSetting, TextSetting } from '../../integration/types';
 import type { ClickGuiValueChangeEvent } from "../../integration/events";
 import { type ColorFormats, convertColor4b, type ThemeColors } from '../color_utils';
-
-export const ArraylistRenderSettings = writable<Set<string>>(new Set());
 
 export const themeColors: Writable<ThemeColors> = writable({
     primary: {
@@ -150,8 +148,6 @@ function updateColorsFromSettings(settings: ConfigurableSetting): void {
     const vignetteSetting = settings.value.find((v) => v.name === 'Vignette')?.value as boolean;
     vignette.set(vignetteSetting);
 
-
-    const renderSetting = customization.value.find(v => v.name === 'ArraylistPrefixRender') as MultiChooseSetting;
     const primaryValue = customization.value.find((v) => v.name === 'Primary')?.value as number;
     const secondaryValue = customization.value.find((v) => v.name === 'Secondary')?.value as number;
     const shadowColorValue = customization.value.find((v) => v.name === 'Shadow')?.value as number;
@@ -166,7 +162,6 @@ function updateColorsFromSettings(settings: ConfigurableSetting): void {
     borderRadiusSetting = customization.value.find(v => v.name === "BorderRadius")?.value as number;
     borderRadius.set(borderRadiusSetting ?? 6);
 
-    ArraylistRenderSettings.set(new Set(renderSetting.value.map(v => v.toLowerCase())));
 
     if (primaryValue !== undefined && secondaryValue !== undefined && shadowColorValue !== undefined) {
         const newTheme: ThemeColors = {

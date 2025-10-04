@@ -88,7 +88,7 @@
     .chosen {
       font-weight: 500;
       color: $text;
-      font-size: 12px;
+      font-size: var(--font-size);
       text-overflow: ellipsis;
       white-space: nowrap;
       grid-column: 1/1;

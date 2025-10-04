@@ -19,6 +19,8 @@
 package net.ccbluex.liquidbounce.integration.backend.backends.cef
 
 import com.mojang.blaze3d.systems.RenderSystem
+import com.sun.jna.platform.win32.COM.WbemcliUtil.WmiQuery
+import com.sun.jna.platform.win32.COM.WbemcliUtil.WmiResult
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.event.EventListener
@@ -235,6 +237,12 @@ class CefBrowserBackend : BrowserBackend, EventListener {
                 return false
             }
 
+            val hasDisplayOutput = checkGpuHasDisplayOutput(renderer)
+            if (!hasDisplayOutput) {
+                logger.warn("Current GPU has no display output (e.g., mining card), falling back to software rendering")
+                return false
+            }
+
             // Required OpenGL extensions for D3D11 shared texture interoperability
             // See https://registry.khronos.org/OpenGL/extensions/EXT/EXT_external_objects_win32.txt
             val extensions = arrayOf(
@@ -256,6 +264,31 @@ class CefBrowserBackend : BrowserBackend, EventListener {
         } catch (e: Exception) {
             logger.warn("Failed to check GPU acceleration support: ${e.message}")
             logger.info("Falling back to software rendering for browser")
+            false
+        }
+    }
+    enum class VideoControllerProperty {
+        NAME,
+        CURRENT_NUMBER_OF_ACTIVE_MONITORS
+    }
+    //Check whether the current GPU is a display adapter (has output capability)
+    private fun checkGpuHasDisplayOutput(renderer: String): Boolean {
+        return try {
+            val query = WmiQuery("Win32_VideoController",
+                VideoControllerProperty::class.java)
+            val result: WmiResult<VideoControllerProperty> = query.execute()
+
+            for (i in 0 until result.resultCount) {
+                val controllerName = result.getValue(VideoControllerProperty.NAME, i) as String
+                if (controllerName.contains(renderer, ignoreCase = true)) {
+                    val activeMonitors = (result.getValue(
+                        VideoControllerProperty.CURRENT_NUMBER_OF_ACTIVE_MONITORS, i) as Int).toUInt()
+                    return activeMonitors > 0u
+                }
+            }
+            false
+        } catch (e: Exception) {
+            logger.warn("Failed to query WMI for GPU display output: ${e.message}")
             false
         }
     }

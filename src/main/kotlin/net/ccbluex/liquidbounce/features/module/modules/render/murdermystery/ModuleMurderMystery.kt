@@ -7,7 +7,7 @@ import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.liquidbounce.render.BoxRenderer
+import net.ccbluex.liquidbounce.render.drawBoxes
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
 import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
@@ -19,7 +19,6 @@ import net.minecraft.entity.Entity
 import net.minecraft.entity.EquipmentSlot
 import net.minecraft.entity.decoration.ArmorStandEntity
 import net.minecraft.item.BowItem
-import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
 import net.minecraft.network.packet.s2c.play.EntityEquipmentUpdateS2CPacket
 import net.minecraft.network.packet.s2c.play.GameJoinS2CPacket
@@ -167,7 +166,7 @@ object ModuleMurderMystery : ClientModule("MurderMystery", Category.RENDER) {
         val matrixStack = event.matrixStack
 
         renderEnvironmentForWorld(matrixStack) {
-            BoxRenderer.drawWith(this) {
+            drawBoxes {
                 val box = Box(-0.6, 0.0, -0.6, 0.6, 2.5, 0.6)
                 val pos = armorStandEntity.interpolateCurrentPosition(event.partialTicks)
 

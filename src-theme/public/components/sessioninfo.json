@@ -12,7 +12,7 @@
     {
       "type": "CHOOSE",
       "name": "Mode",
-      "value": "Simple",
+      "value": "Ambient",
       "choices": [
         "Simple",
         "Ambient"

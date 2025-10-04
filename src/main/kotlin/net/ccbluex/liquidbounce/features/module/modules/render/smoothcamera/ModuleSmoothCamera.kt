@@ -3,8 +3,8 @@ package net.ccbluex.liquidbounce.features.module.modules.render.smoothcamera
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeLook
-import net.ccbluex.liquidbounce.features.module.modules.render.smoothcamera.mode.SmoothCameraMotionMode
 import net.ccbluex.liquidbounce.features.module.modules.render.smoothcamera.mode.SmoothCameraLerpMode
+import net.ccbluex.liquidbounce.features.module.modules.render.smoothcamera.mode.SmoothCameraMotionMode
 import net.ccbluex.liquidbounce.features.module.modules.render.smoothcamera.mode.SmoothCameraMotionMode.motion
 import net.minecraft.client.option.Perspective
 import net.minecraft.util.math.Vec3d
@@ -14,7 +14,7 @@ import net.minecraft.util.math.Vec3d
  *
  * Makes your camera move smoother.
  */
-object ModuleSmoothCamera : ClientModule("SmoothCamera", Category.RENDER, aliases = arrayOf("MotionCamera")) {
+object ModuleSmoothCamera : ClientModule("SmoothCamera", Category.RENDER, aliases = listOf("MotionCamera")) {
 
     private val applyFirstPerspective by boolean("FirstPerspective",false)
     private  val factor by float("Factor", 0.2f, 0.0f..1.0f)

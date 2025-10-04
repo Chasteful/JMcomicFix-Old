@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.event.EventState
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.events.PlayerNetworkMovementTickEvent
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.event.until
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.ModuleNoFall
 import net.minecraft.entity.attribute.EntityAttributes
@@ -67,7 +68,7 @@ internal object NoFallGrim2371 : Choice("Grim2371") {
             player.isOnGround
         }
 
-        waitUntil { player.isOnGround }
+        tickUntil { player.isOnGround }
     }
 
 }

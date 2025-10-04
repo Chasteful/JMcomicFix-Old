@@ -19,6 +19,7 @@
 
 package net.ccbluex.liquidbounce.integration.theme.component.components
 
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud.getScale
 import net.ccbluex.liquidbounce.integration.theme.component.Component
 import net.ccbluex.liquidbounce.integration.theme.component.ComponentTweak
 import net.ccbluex.liquidbounce.utils.client.mc
@@ -40,7 +41,7 @@ fun applyAdaptiveScale(
 ) {
     val window = mc.window
     val s = size.coerceAtLeast(0.1f)
-    val scale = (window.scaledWidth.coerceAtMost(window.scaledHeight)) / 500f * s
+    val scale = ((window.scaledWidth.coerceAtMost(window.scaledHeight)) / 500f * s) * getScale()
 
     val bounds = alignment.getBounds(baseW * scale, baseH * scale)
     val cx = bounds.xMin + (baseW * scale) / 2f

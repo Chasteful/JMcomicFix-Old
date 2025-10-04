@@ -100,6 +100,16 @@
 <style lang="scss">
   @use "../../../../../colors" as *;
 
+  .effects {
+    position: relative;
+    display: inline-flex;
+    min-width: 220px;
+    flex-direction: column-reverse;
+    gap: 4px;
+    white-space: nowrap;
+    font-family: 'Alibaba', sans-serif;
+  }
+
   .effect {
     position: relative;
     font-weight: 600;

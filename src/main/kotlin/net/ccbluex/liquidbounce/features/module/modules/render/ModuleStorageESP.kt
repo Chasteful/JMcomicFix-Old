@@ -19,11 +19,17 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
+import com.viaversion.viaversion.libs.fastutil.objects.ObjectArrayList
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet
+import net.ccbluex.fastutil.unmodifiable
 import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
+import net.ccbluex.liquidbounce.event.computedOn
 import net.ccbluex.liquidbounce.event.events.DrawOutlinesEvent
+import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -31,12 +37,18 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.player.cheststealer.ModuleChestStealer
 import net.ccbluex.liquidbounce.features.module.modules.player.cheststealer.features.FeatureChestAura
 import net.ccbluex.liquidbounce.render.*
+import net.ccbluex.liquidbounce.render.ItemStackListRenderer.Companion.drawItemStackList
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.engine.type.Vec3
 import net.ccbluex.liquidbounce.utils.block.AbstractBlockLocationTracker
 import net.ccbluex.liquidbounce.utils.block.ChunkScanner
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
+import net.ccbluex.liquidbounce.utils.kotlin.proportionOfValue
+import net.ccbluex.liquidbounce.utils.kotlin.valueAtProportion
+import net.ccbluex.liquidbounce.utils.math.Easing
+import net.ccbluex.liquidbounce.utils.math.average
+import net.ccbluex.liquidbounce.utils.math.sq
 import net.ccbluex.liquidbounce.utils.math.toVec3
 import net.ccbluex.liquidbounce.utils.math.toVec3d
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen
@@ -61,7 +73,7 @@ import java.awt.Color
  * Allows you to see chests, dispensers, etc. through walls.
  */
 
-object ModuleStorageESP : ClientModule("StorageESP", Category.RENDER, aliases = arrayOf("ChestESP")) {
+object ModuleStorageESP : ClientModule("StorageESP", Category.RENDER, aliases = listOf("ChestESP")) {
 
     private val modes = choices("Mode", BoxMode, arrayOf(BoxMode, Glow, TagMode))
 
@@ -108,61 +120,141 @@ object ModuleStorageESP : ClientModule("StorageESP", Category.RENDER, aliases = 
 
         private val backgroundColor by color("BackgroundColor", Color4b(Int.MIN_VALUE, hasAlpha = true))
         private val scale by float("Scale", 0.5F, 0.25F..1F)
+        private val renderOffset by vec3d("RenderOffset", Vec3d.ZERO)
+        private val clusterSizeMode = choices("ClusterSizeMode", ClusterSizeMode.Static,
+            arrayOf(ClusterSizeMode.Static, ClusterSizeMode.Distance))
+
+        private sealed class ClusterSizeMode(name: String) : Choice(name) {
+            override val parent: ChoiceConfigurable<*>
+                get() = clusterSizeMode
+
+            abstract fun size(pos: Vec3d): Float
+
+            object Static : ClusterSizeMode("Static") {
+                private val size by float("Size", 1F, 0.1F..32F)
+                override fun size(pos: Vec3d): Float = size
+            }
+
+            object Distance : ClusterSizeMode("Distance") {
+                private val size by floatRange("Size", 1F..16F, 0.1F..32F)
+                private val range by floatRange("Range", 32F..64F, 1F..256F)
+                private val curve by easing("Curve", Easing.LINEAR)
+
+                override fun size(pos: Vec3d): Float {
+                    val playerDistance = player.pos.distanceTo(pos)
+                    return size.valueAtProportion(curve.transform(range.proportionOfValue(playerDistance.toFloat())))
+                }
+            }
+        }
+
+        private val itemStackComparator: Comparator<ItemStack> =
+            Comparator.comparingInt<ItemStack> { -it.count }.thenBy { it.itemName.string }
+
+        private val storageEntities by computedOn<GameTickEvent, ObjectArrayList<ClusteredStorage>>(
+            initialValue = ObjectArrayList(16)
+        ) { _, clusteredStorage ->
+
+
+            val storages = ArrayList<Storage>()
+            for ((pos, type) in StorageScanner.iterate()) {
+                if (!type.enabled || type.color.a <= 0 || !type.shouldRender(pos)) continue
+                val state = pos.getState() ?: continue
+                if (state.isAir) continue
+                storages.add(Storage(pos.toVec3d().add(0.5, 0.5, 0.5), type))
+            }
+
+            for (entity in world.entities) {
+                val type = entity.categorize() ?: continue
+                if (!type.enabled || type.color.a <= 0) continue
+                storages.add(Storage(entity.pos, type))
+            }
+
+            computeStorageClusters(storages, clusteredStorage)
+            clusteredStorage
+        }
+
+        override fun disable() {
+            storageEntities.clear()
+        }
+
+        @Suppress("unused")
+        private val worldHandler = handler<WorldChangeEvent> {
+            storageEntities.clear()
+        }
 
         @Suppress("unused")
         val renderHandler = handler<OverlayRenderEvent> { event ->
             renderEnvironmentForGUI {
-                for ((pos, type) in StorageScanner.iterate()) {
-                    if (!type.enabled || type.color.a <= 0 || !type.shouldRender(pos)) continue
-                    val state = pos.getState() ?: continue
-                    if (state.isAir) continue
+                for (cluster in storageEntities) {
+                    val worldPos = cluster.interpolateCurrentCenterPosition()
+                    val screenPos = WorldToScreen.calculateScreenPos(worldPos.add(renderOffset)) ?: continue
 
-                    val worldPos = pos.toVec3d().add(0.5, 0.5, 0.5)
-                    val screenPos = WorldToScreen.calculateScreenPos(worldPos) ?: continue
+                    val stacks = cluster.storages.map { storage ->
+                        val stack = when (storage.type) {
+                            ChestType.Chest -> ItemStack(Items.CHEST)
+                            ChestType.EnderChest -> ItemStack(Items.ENDER_CHEST)
+                            ChestType.Furnace -> ItemStack(Items.FURNACE)
+                            ChestType.BrewingStand -> ItemStack(Items.BREWING_STAND)
+                            ChestType.Dispenser -> ItemStack(Items.DISPENSER)
+                            ChestType.Hopper -> ItemStack(Items.HOPPER)
+                            ChestType.ShulkerBox -> ItemStack(Items.SHULKER_BOX)
+                            ChestType.Pot -> ItemStack(Items.DECORATED_POT)
+                        }
+                        stack.count = 1
+                        stack
+                    }.sortedWith(itemStackComparator).unmodifiable()
 
-                    val stack = when (type) {
-                        ChestType.Chest -> ItemStack(Items.CHEST)
-                        ChestType.EnderChest -> ItemStack(Items.ENDER_CHEST)
-                        ChestType.Furnace -> ItemStack(Items.FURNACE)
-                        ChestType.BrewingStand -> ItemStack(Items.BREWING_STAND)
-                        ChestType.Dispenser -> ItemStack(Items.DISPENSER)
-                        ChestType.Hopper -> ItemStack(Items.HOPPER)
-                        ChestType.ShulkerBox -> ItemStack(Items.SHULKER_BOX)
-                        ChestType.Pot -> ItemStack(Items.DECORATED_POT)
-                    }
-
-                    event.context.drawItemTags(
-                        stacks = listOf(stack),
-                        centerPos = screenPos,
-                        backgroundColor = backgroundColor.toARGB(),
-                        scale = scale,
-                        rowLength = 1
-                    )
-                }
-
-                for (entity in world.entities) {
-                    val type = entity.categorize() ?: continue
-                    if (!type.enabled || type.color.a <= 0) continue
-
-                    val pos = entity.interpolateCurrentPosition(event.tickDelta)
-                    val screenPos = WorldToScreen.calculateScreenPos(pos) ?: continue
-
-                    val stack = when (type) {
-                        ChestType.Chest -> ItemStack(Items.CHEST)
-                        ChestType.Hopper -> ItemStack(Items.HOPPER)
-                        else -> continue
-                    }
-
-                    event.context.drawItemTags(
-                        stacks = listOf(stack),
-                        centerPos = screenPos,
-                        backgroundColor = backgroundColor.toARGB(),
-                        scale = scale,
-                        rowLength = 1
-                    )
+                    event.context.drawItemStackList(stacks)
+                        .center(screenPos)
+                        .rectBackground(color = backgroundColor.toARGB())
+                        .scale(scale)
+                        .draw()
                 }
             }
         }
+
+        private data class Storage(val pos: Vec3d, val type: ChestType)
+
+        private class ClusteredStorage(val storages: List<Storage>) {
+            fun interpolateCurrentCenterPosition(): Vec3d {
+                return storages.map { it.pos }.average()
+            }
+        }
+
+        @Suppress("NestedBlockDepth","CognitiveComplexMethod")
+        fun computeStorageClusters(storages: List<Storage>, output: ObjectArrayList<ClusteredStorage>) {
+            val visited = ReferenceOpenHashSet<Storage>()
+            val clusters = ObjectArrayList<List<Storage>>()
+
+            for (storage in storages) {
+                if (storage in visited) continue
+                val cluster = ArrayList<Storage>()
+                val queue = ArrayDeque<Storage>()
+                queue.add(storage)
+                visited.add(storage)
+
+                while (queue.isNotEmpty()) {
+                    val current = queue.removeFirst()
+                    cluster.add(current)
+                    val radiusSquared = clusterSizeMode.activeChoice.size(current.pos).sq()
+
+                    for (other in storages) {
+                        if (other in visited) continue
+                        if (current.pos.squaredDistanceTo(other.pos) < radiusSquared) {
+                            visited.add(other)
+                            queue.add(other)
+                        }
+                    }
+                }
+
+                clusters.add(cluster)
+            }
+
+            output.clear()
+            output.ensureCapacity(clusters.size)
+            clusters.mapTo(output) { ClusteredStorage(it) }
+        }
+
     }
 
     private object BoxMode : Choice("Box") {
@@ -179,7 +271,7 @@ object ModuleStorageESP : ClientModule("StorageESP", Category.RENDER, aliases = 
             val queuedBoxes = collectBoxesToDraw(event)
 
             renderEnvironmentForWorld(matrixStack) {
-                BoxRenderer.drawWith(this) {
+                drawBoxes {
                     for ((pos, box, color) in queuedBoxes) {
                         val playerPos = player.interpolateCurrentPosition(event.partialTicks)
                         val dist = playerPos.distanceTo(pos)
@@ -252,7 +344,9 @@ object ModuleStorageESP : ClientModule("StorageESP", Category.RENDER, aliases = 
             }
 
             renderEnvironmentForWorld(event.matrixStack) {
-                BoxRenderer.drawWith(this) {
+                // non-model blocks are already processed by WorldRenderer where we injected code which renders
+                // their outline
+                drawBoxes {
                     for ((pos, type) in StorageScanner.iterate()) {
                         if (!type.enabled) continue
 

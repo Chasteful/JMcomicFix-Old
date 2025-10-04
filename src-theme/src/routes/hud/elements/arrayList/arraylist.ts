@@ -7,13 +7,16 @@ import type {
     FloatSetting,
     IntRangeSetting,
     IntSetting,
-    MultiChooseSetting, TextSetting,
+    MultiChooseSetting,
+    TextSetting,
 } from '../../../../integration/types';
-import {ArraylistRenderSettings, primaryRgb, secondaryRgb} from '../../../../util/Theme/ThemeManager';
-import {type Readable} from "svelte/store";
+import {primaryRgb, secondaryRgb} from '../../../../util/Theme/ThemeManager';
+import {type Readable, writable} from "svelte/store";
 import Color from 'colorjs.io';
 
 let currentRenderSettings = new Set<string>();
+
+export const ArraylistRenderSettings = writable<Set<string>>(new Set());
 
 export async function getPrefixAsync(name: string) {
     const settings = await getModuleSettings(name);
@@ -21,26 +24,26 @@ export async function getPrefixAsync(name: string) {
 
     // @ts-ignore
     const checkSetting = (setting: any): string | null => {
-        const valueType = setting.valueType.toLowerCase();
+        const valueType = setting.valueType;
         if (!currentRenderSettings.size || currentRenderSettings.has(valueType)) {
             switch (valueType) {
-                case 'choice':
+                case 'CHOICE':
                     return (setting as ChoiceSetting).active;
-                case 'choose':
+                case 'CHOOSE':
                     return (setting as ChooseSetting).value;
-                case 'multi_choose':
+                case 'MULTI_CHOOSE':
                     return (setting as MultiChooseSetting).value.toString();
-                case 'int_range':
+                case 'INT_RANGE':
                     const intRange = setting as IntRangeSetting;
                     return `${intRange.value.from}-${intRange.value.to}`;
-                case 'float_range':
+                case 'FLOAT_RANGE':
                     const floatRange = setting as FloatRangeSetting;
                     return `${floatRange.value.from}-${floatRange.value.to}`;
-                case 'text':
+                case 'TEXT':
                     return (setting as TextSetting).value
-                case 'int':
+                case 'INT':
                     return (setting as IntSetting).value.toString();
-                case 'float':
+                case 'FLOAT':
                     return (setting as FloatSetting).value.toString();
                 default:
                     return null;

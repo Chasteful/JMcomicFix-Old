@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import java.util.*;
+import java.util.Map;
 
 @Mixin(YggdrasilMinecraftSessionService.class)
 public class MixinYggdrasilMinecraftSessionService {
@@ -44,25 +44,20 @@ public class MixinYggdrasilMinecraftSessionService {
         return TextureUrlChecker.isAllowedTextureDomain(url);
     }
 
+
     @Inject(method = "unpackTextures", at = @At("RETURN"), cancellable = true, remap = false)
     private void onUnpackTexturesReturn(Property packedTextures, CallbackInfoReturnable<MinecraftProfileTextures> cir) {
-        if (!ModuleYggdrasilSignatureFix.INSTANCE.getRunning()) {
+        if (!ModuleYggdrasilSignatureFix.INSTANCE.getRunning() || !ModuleYggdrasilSignatureFix.INSTANCE.getForceSlimModel())
             return;
-        }
 
         MinecraftProfileTextures original = cir.getReturnValue();
-        if (original == null || original == MinecraftProfileTextures.EMPTY) return;
+        if (original == null || original == MinecraftProfileTextures.EMPTY || original.skin() == null) return;
 
-        MinecraftProfileTexture skin = original.skin();
-        if (skin == null) return;
-
-        Map<String, String> newMeta = new HashMap<>();
-        newMeta.put("model", "slim");
-
-        MinecraftProfileTexture newSkin = new MinecraftProfileTexture(skin.getUrl(), newMeta);
+        String url = original.skin().getUrl();
+        if (!url.contains("127.0.0.1")) return;
 
         MinecraftProfileTextures forced = new MinecraftProfileTextures(
-                newSkin,
+                new MinecraftProfileTexture(url, Map.of("model", "slim")),
                 original.cape(),
                 original.elytra(),
                 original.signatureState()
@@ -70,5 +65,6 @@ public class MixinYggdrasilMinecraftSessionService {
 
         cir.setReturnValue(forced);
     }
+
 
 }

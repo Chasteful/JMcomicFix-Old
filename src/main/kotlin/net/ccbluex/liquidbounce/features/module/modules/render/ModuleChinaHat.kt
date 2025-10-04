@@ -21,12 +21,12 @@ import org.lwjgl.opengl.GL11
 import kotlin.math.cos
 import kotlin.math.sin
 
-object ModuleChinaHat : ClientModule("ChinaHat", Category.RENDER, aliases = arrayOf("BambooHat")) {
+object ModuleChinaHat : ClientModule("ChinaHat", Category.RENDER, aliases = listOf("BambooHat")) {
     private val onlySelf by boolean("OnlySelf", true)
     private val side by int("Side", 16, 16..256)
     private val alpha by int("Alpha", 100, 0..255)
-    private val height by float("Height",0.2f,0.0f..0.5f)
-    private val offsetY by float("OffsetY",0.1f,0.0f..0.35f)
+    private val height by float("Height",0.4f,0.2f..0.75f)
+    private val offsetY by float("OffsetY",0.2f,0.15f..0.35f)
     private val rotation by float("RotationX", 0f, -180f..180f)
     private val gradientSpeed by float("GradientSpeed", 1f,0.2f..2f)
     private val colorMode = choices(this, "ColorMode") {

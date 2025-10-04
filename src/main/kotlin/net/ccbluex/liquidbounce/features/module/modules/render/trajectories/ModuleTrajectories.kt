@@ -58,7 +58,8 @@ object ModuleTrajectories : ClientModule("Trajectories", Category.RENDER) {
     private val show by multiEnumChoice(
         "Show",
         Show.OTHER_PLAYERS,
-        Show.ACTIVE_HOLDING
+        Show.ACTIVE_HOLDING,
+        Show.ACTIVE_THROWN
     )
 
     val alwaysShowBow get() = Show.ALWAYS_SHOW_BOW in show

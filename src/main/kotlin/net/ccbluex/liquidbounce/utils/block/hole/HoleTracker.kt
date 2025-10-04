@@ -24,11 +24,7 @@ import net.ccbluex.liquidbounce.utils.block.ChunkScanner
 import net.ccbluex.liquidbounce.utils.block.DIRECTIONS_EXCLUDING_UP
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.kotlin.getValue
-import net.ccbluex.liquidbounce.utils.math.expendToBlockBox
-import net.ccbluex.liquidbounce.utils.math.iterate
-import net.ccbluex.liquidbounce.utils.math.iterator
-import net.ccbluex.liquidbounce.utils.math.size
-import net.ccbluex.liquidbounce.utils.math.toBlockBox
+import net.ccbluex.liquidbounce.utils.math.*
 import net.minecraft.block.Block
 import net.minecraft.block.BlockState
 import net.minecraft.registry.Registries

@@ -1,12 +1,9 @@
 <script lang="ts">
     import {onMount} from "svelte"
-    import type {
-        BlockCountChangeEvent,
-        ClientPlayerDataEvent, EventMap,
-    } from "../../../integration/events"
+    import type {BlockCountChangeEvent, ClientPlayerDataEvent, EventMap,} from "../../../integration/events"
     import type {PlayerData} from "../../../integration/types"
     import {listen} from "../../../integration/ws"
-    import {getPlayerData, getModules} from "../../../integration/rest"
+    import {getModules, getPlayerData} from "../../../integration/rest"
     import {FadeOut} from "../../../util/animate_utils"
     import {REST_BASE} from "../../../integration/host"
 

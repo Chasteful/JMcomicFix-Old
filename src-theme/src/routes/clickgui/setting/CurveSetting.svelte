@@ -40,7 +40,7 @@
     const EPS = 1e-9;
     // Points at the exact edges of the x-axis are locked. This margin prevents additional points from being locked.
     const EDGE_MARGIN = 1e-6;
-    const COLOR_ACCENT = "#4677ff"; // NOTE: This should be read from a color file in the future.
+    const COLOR_ACCENT = "#CDD6F4FF"; // NOTE: This should be read from a color file in the future.
     const COLOR_GRID = "#333333";
     const COLOR_DIMMED_TEXT = "rgba(211, 211, 211, 255)";
 
@@ -310,8 +310,8 @@
   }
 
   .title {
-    color: $clickgui-text-color;
-    font-size: 12px;
+    color: $text;
+    font-size: var(--font-size);
     font-weight: 600;
   }
 

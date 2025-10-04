@@ -204,11 +204,17 @@ public abstract class MixinPlayerEntity extends MixinLivingEntity {
 
     @ModifyReturnValue(method = "getBlockInteractionRange", at = @At("RETURN"))
     private double hookBlockInteractionRange(double original) {
-        if ((Object) this == MinecraftClient.getInstance().player && ModuleReach.INSTANCE.getRunning()) {
-            return ModuleReach.INSTANCE.getBlockReach();
-        }
+        if ((Object) this != MinecraftClient.getInstance().player || !ModuleReach.INSTANCE.getRunning())
+            return original;
 
-        return original;
+        double blockReach = ModuleReach.INSTANCE.getBlockReach();
+        if (!ModuleReach.INSTANCE.getVerticalExempt())
+            return blockReach;
+
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null) return blockReach;
+
+        return Math.max(blockReach, ModuleReach.INSTANCE.getExemptBlockReach(player.getPitch()));
     }
 
     @Inject(method = "equipStack", at = @At("HEAD"))

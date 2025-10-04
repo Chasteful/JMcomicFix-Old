@@ -1,15 +1,17 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.modes
 
 import it.unimi.dsi.fastutil.objects.ObjectLongMutablePair
-import net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.JumpEffectMode
 import net.ccbluex.liquidbounce.event.events.PlayerJumpEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.JumpEffectMode
 import net.ccbluex.liquidbounce.features.module.modules.render.jumpeffect.ModuleJumpEffect.colorMode
-import net.ccbluex.liquidbounce.render.*
+import net.ccbluex.liquidbounce.render.drawGradientCircle
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
 import net.ccbluex.liquidbounce.render.utils.shiftHue
+import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
 import net.ccbluex.liquidbounce.utils.math.Easing
 import net.minecraft.util.math.Vec3d
 

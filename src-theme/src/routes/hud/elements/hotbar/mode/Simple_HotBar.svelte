@@ -1,10 +1,11 @@
 <script lang="ts">
     import {listen} from "../../../../../integration/ws";
     import type {ClientPlayerDataEvent, ClientPlayerInventoryEvent} from "../../../../../integration/events";
-    import type {PlayerData, ItemStack} from "../../../../../integration/types";
+    import type {ItemStack, PlayerData} from "../../../../../integration/types";
     import {getPlayerData, getPlayerInventory} from "../../../../../integration/rest";
     import {onMount} from "svelte";
-    import ItemIndexView from "../../../common/ItemView/ItemIndexView.svelte";
+    import {scaleFactor} from "../HotBar";
+    import ItemStackDisplay from "../../../common/ItemView/ItemStackDisplay.svelte";
 
     let currentSlot = 0;
     let playerData: PlayerData | null = null;
@@ -35,19 +36,20 @@
 </script>
 
 {#if playerData && playerData.gameMode !== "spectator"}
-    <div class="hotbar">
+    <div class="hotbar" style="transform: scale({$scaleFactor})">
         <div class="hotbar-elements">
             <div class="slots">
                 {#each hotbar as stack, index(stack)}
                     <div class="slot" class:selected={index === currentSlot}>
                         {#if stack && stack.identifier !== "minecraft:air"}
-                            <ItemIndexView {stack}/>
+                            <ItemStackDisplay
+                                    {stack}
+                                    dyedMode={true}
+                            />
                         {/if}
                     </div>
                 {/each}
             </div>
-
-
         </div>
     </div>
 {/if}

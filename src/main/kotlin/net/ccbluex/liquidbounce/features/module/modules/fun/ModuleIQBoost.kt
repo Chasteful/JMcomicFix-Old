@@ -8,7 +8,7 @@ import kotlin.math.pow
 
 @Suppress("UNUSED_PARAMETER")
 object ModuleIQBoost : ClientModule("IQBoost", Category.FUN,
-    aliases = arrayOf("HeTao", "CognitiveEnhancer", "NeuralOptimizer", "IntelligenceQuotientAmplificationMatrix")) {
+    aliases = listOf("HeTao", "CognitiveEnhancer", "NeuralOptimizer", "IntelligenceQuotientAmplificationMatrix")) {
 
     private val modes = choices(
         "Mode",

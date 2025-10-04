@@ -97,7 +97,7 @@
   .effects {
     position: relative;
     display: inline-flex;
-    min-width: max-content;
+    min-width: 220px;
     flex-direction: column-reverse;
     gap: 4px;
     white-space: nowrap;

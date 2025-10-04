@@ -66,7 +66,7 @@ open class Configurable(
     /**
      * Used for backwards compatibility when renaming.
      */
-    aliases: Array<out String> = emptyArray(),
+    aliases: List<String> = emptyList(),
 ) : Value<MutableCollection<Value<*>>>(
     name,
     aliases,
@@ -199,14 +199,15 @@ open class Configurable(
         name: String,
         defaultValue: T,
         valueType: ValueType = ValueType.INVALID,
-    ) = Value(name, defaultValue = defaultValue, valueType = valueType).apply {
+        aliases: List<String> = emptyList(),
+    ) = Value(name, aliases = aliases, defaultValue = defaultValue, valueType = valueType).apply {
         this@Configurable.inner.add(this)
     }
 
     internal inline fun <T : MutableCollection<E>, reified E> list(
         name: String,
         defaultValue: T,
-        valueType: ValueType
+        valueType: ValueType,
     ) = ListValue(name, defaultValue, innerValueType = valueType, innerType = E::class.java).apply {
         this@Configurable.inner.add(this)
     }
@@ -214,7 +215,7 @@ open class Configurable(
     internal inline fun <T : MutableCollection<E>, reified E> mutableList(
         name: String,
         defaultValue: T,
-        valueType: ValueType
+        valueType: ValueType,
     ) = MutableListValue(name, defaultValue, valueType, E::class.java).apply {
         this@Configurable.inner.add(this)
     }
@@ -223,7 +224,7 @@ open class Configurable(
         name: String,
         defaultValue: T,
         items: Set<ItemListValue.NamedItem<E>>,
-        valueType: ValueType
+        valueType: ValueType,
     ) = ItemListValue(name, defaultValue, items, valueType, E::class.java).apply {
         this@Configurable.inner.add(this)
     }
@@ -231,37 +232,68 @@ open class Configurable(
     internal inline fun <T : MutableSet<E>, reified E> registryList(
         name: String,
         defaultValue: T,
-        valueType: ValueType
+        valueType: ValueType,
     ) = RegistryListValue(name, defaultValue, valueType, E::class.java).apply {
         this@Configurable.inner.add(this)
     }
 
-    fun <T : Any> rangedValue(
+    private fun <T : Any> rangedValue(
         name: String,
         defaultValue: T,
         range: ClosedRange<*>,
         suffix: String,
-        valueType: ValueType
-    ) = RangedValue(name, defaultValue = defaultValue, range = range, suffix = suffix, valueType = valueType).apply {
+        valueType: ValueType,
+        aliases: List<String> = emptyList(),
+    ) = RangedValue(
+        name,
+        aliases = aliases,
+        defaultValue = defaultValue,
+        range = range,
+        suffix = suffix,
+        valueType = valueType,
+    ).apply {
         this@Configurable.inner.add(this)
     }
 
     // Fixed data types
 
-    fun boolean(name: String, default: Boolean) = value(name, default, ValueType.BOOLEAN)
+    fun boolean(
+        name: String,
+        default: Boolean,
+        aliases: List<String> = emptyList(),
+    ) = value(name, default, ValueType.BOOLEAN, aliases)
 
-    fun float(name: String, default: Float, range: ClosedFloatingPointRange<Float>, suffix: String = "") =
-        rangedValue(name, default, range, suffix, ValueType.FLOAT)
+    fun float(
+        name: String,
+        default: Float,
+        range: ClosedFloatingPointRange<Float>,
+        suffix: String = "",
+        aliases: List<String> = emptyList(),
+    ) = rangedValue(name, default, range, suffix, ValueType.FLOAT, aliases)
 
     fun floatRange(
         name: String,
         default: ClosedFloatingPointRange<Float>,
         range: ClosedFloatingPointRange<Float>,
-        suffix: String = ""
-    ) = rangedValue(name, default, range, suffix, ValueType.FLOAT_RANGE)
+        suffix: String = "",
+        aliases: List<String> = emptyList(),
+    ) = rangedValue(name, default, range, suffix, ValueType.FLOAT_RANGE, aliases)
 
-    fun int(name: String, default: Int, range: IntRange, suffix: String = "") =
-        rangedValue(name, default, range, suffix, ValueType.INT)
+    fun int(
+        name: String,
+        default: Int,
+        range: IntRange,
+        suffix: String = "",
+        aliases: List<String> = emptyList(),
+    ) = rangedValue(name, default, range, suffix, ValueType.INT, aliases)
+
+    fun intRange(
+        name: String,
+        default: IntRange,
+        range: IntRange,
+        suffix: String = "",
+        aliases: List<String> = emptyList(),
+    ) = rangedValue(name, default, range, suffix, ValueType.INT_RANGE, aliases)
 
     fun bind(name: String, default: Int = GLFW.GLFW_KEY_UNKNOWN) = bind(
         name,
@@ -276,9 +308,6 @@ open class Configurable(
 
     fun key(name: String, default: InputUtil.Key = InputUtil.UNKNOWN_KEY) =
         value(name, default, ValueType.KEY)
-
-    fun intRange(name: String, default: IntRange, range: IntRange, suffix: String = "") =
-        rangedValue(name, default, range, suffix, ValueType.INT_RANGE)
 
     fun text(name: String, default: String) = value(name, default, ValueType.TEXT)
 
@@ -341,7 +370,7 @@ open class Configurable(
         name: String,
         default: File? = null,
         dialogMode: FileDialogMode = FileDialogMode.OPEN_FILE,
-        supportedExtensions: Set<String>? = null
+        supportedExtensions: Set<String>? = null,
     ) = FileValue(name, default, dialogMode, supportedExtensions).apply {
         this@Configurable.inner.add(this)
     }
@@ -349,14 +378,14 @@ open class Configurable(
     inline fun <reified T> multiEnumChoice(
         name: String,
         vararg default: T,
-        canBeNone: Boolean = true
+        canBeNone: Boolean = true,
     ) where T : Enum<T>, T : NamedChoice =
         multiEnumChoice(name, default.toEnumSet(), canBeNone = canBeNone)
 
     inline fun <reified T> multiEnumChoice(
         name: String,
         default: EnumEntries<T>,
-        canBeNone: Boolean = true
+        canBeNone: Boolean = true,
     ) where T : Enum<T>, T : NamedChoice =
         multiEnumChoice(name, default.toEnumSet(), canBeNone = canBeNone)
 
@@ -364,7 +393,7 @@ open class Configurable(
         name: String,
         default: EnumSet<T> = emptyEnumSet(),
         choices: EnumSet<T> = EnumSet.allOf(T::class.java),
-        canBeNone: Boolean = true
+        canBeNone: Boolean = true,
     ) where T : Enum<T>, T : NamedChoice =
         multiEnumChoice(name, default, choices as Set<T>, canBeNone)
 
@@ -372,8 +401,8 @@ open class Configurable(
         name: String,
         default: MutableSet<T>,
         choices: Set<T>,
-        canBeNone: Boolean
-    ) = MultiChooseListValue(name, default, choices, canBeNone).apply { this@Configurable.inner.add(this@apply) }
+        canBeNone: Boolean,
+    ) = MultiChooseListValue(name, default, choices, canBeNone).apply { this@Configurable.inner.add(this) }
 
     inline fun <reified T> enumChoice(name: String, default: T): ChooseListValue<T>
         where T : Enum<T>, T : NamedChoice = enumChoice(name, default, EnumSet.allOf(T::class.java))
@@ -385,7 +414,7 @@ open class Configurable(
         eventListener: EventListener,
         name: String,
         active: T,
-        choices: Array<T>
+        choices: Array<T>,
     ): ChoiceConfigurable<T> {
         return choices(eventListener, name, {
             val idx = choices.indexOf(active)
@@ -400,7 +429,7 @@ open class Configurable(
         eventListener: EventListener,
         name: String,
         activeCallback: ToIntFunction<List<T>>,
-        choicesCallback: (ChoiceConfigurable<T>) -> Array<T>
+        choicesCallback: (ChoiceConfigurable<T>) -> Array<T>,
     ): ChoiceConfigurable<T> {
         return ChoiceConfigurable(eventListener, name, activeCallback, choicesCallback).apply {
             this@Configurable.inner.add(this)
@@ -412,10 +441,10 @@ open class Configurable(
         eventListener: EventListener,
         name: String,
         activeIndex: Int = 0,
-        choicesCallback: (ChoiceConfigurable<T>) -> Array<T>
+        choicesCallback: (ChoiceConfigurable<T>) -> Array<T>,
     ) = choices(eventListener, name, { activeIndex }, choicesCallback)
 
-    fun value(value: Value<*>) = value.apply { this@Configurable.inner.add(this) }
+    fun <V : Value<*>> value(value: V) = value.apply { this@Configurable.inner.add(this) }
 
     /**
      * Assigns the value of the settings to the component
@@ -439,24 +468,49 @@ open class Configurable(
      *
      * @param valueObject JsonObject
      */
-    @Suppress("LongMethod")
+    @Suppress("LongMethod","CognitiveComplexMethod")
     fun json(valueObject: JsonObject) {
         val type = enumValueOf<ValueType>(valueObject["type"].asString)
         val name = valueObject["name"].asString
 
         // todo: replace this with serious deserialization
+        fun trySetExistingValue(existing: Value<*>, newValue: Any?) {
+            try {
+                val f = existing.javaClass.getDeclaredField("value")
+                f.isAccessible = true
+                f.set(existing, newValue)
+                return
+            } catch (_: NoSuchFieldException) { /* fallback */ }
+            try {
+                val f2 = existing.javaClass.getDeclaredField("defaultValue")
+                f2.isAccessible = true
+                f2.set(existing, newValue)
+                return
+            } catch (_: NoSuchFieldException) { /* give up -> will create new */ }
+        }
+
+        val existing = inner.find { it.name.equals(name, ignoreCase = true) }
+
         when (type) {
             ValueType.BOOLEAN -> {
                 val value = valueObject["value"].asBoolean
-                boolean(name, value)
+                if (existing is Value<*>) {
+                    trySetExistingValue(existing, value)
+                } else {
+                    boolean(name, value)
+                }
             }
-
             ValueType.INT -> {
-                val value = valueObject["value"].asInt
-                val min = valueObject["range"].asJsonObject["min"].asInt
-                val max = valueObject["range"].asJsonObject["max"].asInt
+                val v = valueObject["value"].asInt
+                val range = valueObject["range"].asJsonObject
+                val min = range["min"].asInt
+                val max = range["max"].asInt
                 val suffix = valueObject["suffix"]?.asString ?: ""
-                int(name, value, min..max, suffix)
+                if (existing is Value<*>) {
+                    trySetExistingValue(existing, v)
+                } else {
+                    int(name, v, min..max, suffix)
+                }
             }
 
             ValueType.INT_RANGE -> {
@@ -469,11 +523,16 @@ open class Configurable(
             }
 
             ValueType.FLOAT -> {
-                val value = valueObject["value"].asFloat
-                val min = valueObject["range"].asJsonObject["min"].asFloat
-                val max = valueObject["range"].asJsonObject["max"].asFloat
+                val v = valueObject["value"].asFloat
+                val range = valueObject["range"].asJsonObject
+                val min = range["min"].asFloat
+                val max = range["max"].asFloat
                 val suffix = valueObject["suffix"]?.asString ?: ""
-                float(name, value, min..max, suffix)
+                if (existing is Value<*>) {
+                    trySetExistingValue(existing, v)
+                } else {
+                    float(name, v, min..max, suffix)
+                }
             }
 
             ValueType.FLOAT_RANGE -> {
@@ -491,48 +550,75 @@ open class Configurable(
             }
 
             ValueType.COLOR -> {
-                val value = valueObject["value"].asInt
-                color(name, Color4b(value, hasAlpha = true))
+                val vInt = valueObject["value"].asInt
+                val v = Color4b(vInt, hasAlpha = true)
+                if (existing is Value<*>) {
+                    trySetExistingValue(existing, v)
+                } else {
+                    color(name, v)
+                }
             }
 
             ValueType.CONFIGURABLE -> {
-                val subConfigurable = Configurable(name)
+                val configurableName = name
                 val values = valueObject["values"].asJsonArray
-                for (value in values) {
-                    subConfigurable.json(value.asJsonObject)
+                val confExisting = inner.find { it is Configurable && it.name.equals(configurableName, true) }
+                if (confExisting is Configurable) {
+                    for (child in values) {
+                        confExisting.json(child.asJsonObject)
+                    }
+                } else {
+                    val subConfigurable = Configurable(configurableName)
+                    for (child in values) {
+                        subConfigurable.json(child.asJsonObject)
+                    }
+                    tree(subConfigurable)
                 }
-                tree(subConfigurable)
             }
             // same as configurable but it is [ToggleableConfigurable]
             ValueType.TOGGLEABLE -> {
-                val value = valueObject["value"].asBoolean
-                // Parent is NULL in that case because we are not dealing with Listenable anyway and only use it
-                // as toggleable Configurable
-                val subConfigurable = object : ToggleableConfigurable(null, name, value) {}
-                val settings = valueObject["values"].asJsonArray
-                for (setting in settings) {
-                    subConfigurable.json(setting.asJsonObject)
-                }
-                tree(subConfigurable)
-            }
+                val enabled = valueObject["value"].asBoolean
+                val values = valueObject["values"].asJsonArray
 
+                val confExisting = inner.find { it.name.equals(name, true) }
+
+                if (confExisting is ToggleableConfigurable) {
+                    confExisting.enabled = enabled
+                    values.forEach { confExisting.json(it.asJsonObject) }
+                } else {
+                    if (confExisting != null) inner.remove(confExisting)
+                    val sub = object : ToggleableConfigurable(null, name, enabled) {}
+                    values.forEach { sub.json(it.asJsonObject) }
+                    tree(sub)
+                }
+            }
             ValueType.CHOOSE -> {
-                val value = valueObject["value"].asString.asNamedChoice()
+                val v = valueObject["value"].asString.asNamedChoice()
                 val choices = valueObject["choices"].asJsonArray.mapTo(linkedSetOf()) { it.asString.asNamedChoice() }
 
-                enumChoice(name, value, choices)
+                val existingChoice = inner.find { it.name.equals(name, true) }
+                if (existingChoice is Value<*>) {
+                    trySetExistingValue(existingChoice, v)
+                } else {
+                    enumChoice(name, v, choices)
+                }
             }
 
             ValueType.MULTI_CHOOSE -> {
-                val value = valueObject["value"].asJsonArray.mapTo(hashSetOf()) { it.asString.asNamedChoice() }
+                val v = valueObject["value"].asJsonArray.mapTo(hashSetOf()) { it.asString.asNamedChoice() }
                 val choices = valueObject["choices"].asJsonArray.mapTo(linkedSetOf()) { it.asString.asNamedChoice() }
                 val canBeNone = when (val json = valueObject["canBeNone"]) {
-                    null, is JsonNull -> true // default = true
+                    null, is JsonNull -> true
                     is JsonPrimitive, is JsonArray -> json.asBoolean
                     else -> error("Unexpected JSON (${json.javaClass}): $json, should be boolean")
                 }
 
-                multiEnumChoice(name, value, choices, canBeNone)
+                val existingMulti = inner.find { it.name.equals(name, true) }
+                if (existingMulti is Value<*>) {
+                    trySetExistingValue(existingMulti, v)
+                } else {
+                    multiEnumChoice(name, v, choices, canBeNone)
+                }
             }
 
             else -> error("Unsupported type: $type")

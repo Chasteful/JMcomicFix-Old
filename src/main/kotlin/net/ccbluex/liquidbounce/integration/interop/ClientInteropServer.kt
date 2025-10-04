@@ -46,7 +46,7 @@ object ClientInteropServer {
 
     private const val DEFAULT_PORT = 721
 
-    private var port = try {
+    var port = try {
         Socket("127.0.0.1", DEFAULT_PORT).use {
             logger.info("Default port unavailable. Falling back to random port.")
             (15001..17000).random()

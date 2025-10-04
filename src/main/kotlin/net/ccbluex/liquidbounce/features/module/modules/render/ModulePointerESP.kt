@@ -1,6 +1,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.render
 
 import com.mojang.blaze3d.systems.RenderSystem
+import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
@@ -9,16 +10,15 @@ import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.utils.RenderUtils
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.ccbluex.liquidbounce.utils.client.toDegrees
 import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
-import net.ccbluex.liquidbounce.utils.kotlin.mapArray
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.minecraft.client.gl.ShaderProgram
 import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import net.minecraft.entity.LivingEntity
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.MathHelper
@@ -65,13 +65,13 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
     init {
         tree(ImageOffset)
     }
-    private val renderRadius by int("RenderRadius", 150, 50..500)
-    private val pointerSize by float("PointerSize", 25f, 1f..50f)
-    private val pointerAlpha by float("PointerAlpha", 0.5f, 0f..1f)
+    private val renderRadius by int("RenderRadius", 200, 50..500)
+    private val pointerSize by float("PointerSize", 1f, 0.5f..1.5f)
+    private val pointerAlpha by float("PointerAlpha", 0.75f, 0f..1f)
     private val pitchLimit by floatRange("PitchLimit", 30f..90f, 0f..90f).onChanged {
         negativePitchLimit = -it.endInclusive..-it.start
     }
-    private val smoothingFactor by float("SmoothingFactor", 0.3f, 0.1f..0.5f)
+    private val smoothingFactor by float("SmoothingFactor", 0.25f, 0.1f..0.5f)
 
     private var negativePitchLimit: ClosedFloatingPointRange<Float> = -pitchLimit.endInclusive..-pitchLimit.start
     private val pointerData = mutableMapOf<LivingEntity, Pair<Float, Float>>()
@@ -91,7 +91,7 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
     @Suppress("unused")
     private val renderHandler = handler<OverlayRenderEvent> { event ->
         val matrices = event.context.matrices
-        val pointers = RenderedEntities.mapArray {
+        val pointers = RenderedEntities.mapToArray {
             val diff = it.interpolateCurrentPosition(event.tickDelta) - player.pos
             val rawAngle = atan2(diff.z, diff.x).toFloat().toDegrees()
             val targetAngle = (player.yaw - 90f - rawAngle).let { theta ->
@@ -143,7 +143,7 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
                 val scale = (window.scaledWidth.coerceAtMost(window.scaledHeight)) / 1000f
 
                 val adaptiveRadius = renderRadius * scale
-                val adaptiveSize = pointerSize * scale
+                val adaptiveSize = pointerSize * scale * 10
 
                 matrices.translate(
                     (cx + offsetX).toDouble(),
@@ -161,13 +161,17 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
                 val color = p.color.with(a = (pointerAlpha * 255f).toInt().coerceIn(0, 255))
                 drawCustomMesh(
                     VertexFormat.DrawMode.QUADS,
-                    VertexFormats.POSITION_TEXTURE_COLOR,
-                    ShaderProgramKeys.POSITION_TEX_COLOR
+                    VertexInputType.PosTexColor,
                 ) { mat ->
-                    vertex(mat, 0f, 0f, 0f).texture(0f, 0f).color(color.toARGB())
-                    vertex(mat, 1f, 0f, 0f).texture(1f, 0f).color(color.toARGB())
-                    vertex(mat, 1f, 1f, 0f).texture(1f, 1f).color(color.toARGB())
-                    vertex(mat, 0f, 1f, 0f).texture(0f, 1f).color(color.toARGB())
+                    val halfSize = adaptiveSize / 2f
+                    RenderUtils.emitQuadInline(
+                        color.toARGB(),
+                        0f, 0f, 0f,
+                        mat,
+                        halfSize, 0f, 0f,
+                        0f, -halfSize, 0f,
+                        this
+                    )
                 }
 
                 matrices.pop()

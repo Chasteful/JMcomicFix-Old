@@ -14,18 +14,13 @@ import net.ccbluex.liquidbounce.features.module.modules.render.esp.ModuleESP.get
 import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspImageMode.RotationOption.maxRotationAngle
 import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspImageMode.RotationOption.rotationDuration
 import net.ccbluex.liquidbounce.features.module.modules.render.esp.modes.EspImageMode.RotationOption.rotationSpeed
-import net.ccbluex.liquidbounce.render.WorldRenderEnvironment
-import net.ccbluex.liquidbounce.render.drawCustomMesh
+import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
-import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
 import net.ccbluex.liquidbounce.utils.client.Chronometer
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
-import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import net.minecraft.client.texture.NativeImage
 import net.minecraft.client.texture.NativeImageBackedTexture
 import net.minecraft.client.util.math.MatrixStack
@@ -139,8 +134,7 @@ object EspImageMode : EspMode("Image", requiresTrueSight = true) {
 
             drawCustomMesh(
                 VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
+                VertexInputType.PosTexColor,
             ) { matrix ->
                 vertex(matrix, 0.0f, 0.0f, 0.0f).texture(0.0f, 1.0f).color(color.toARGB())
                 vertex(matrix, 1.0f, 0.0f, 0.0f).texture(1.0f, 1.0f).color(color.toARGB())

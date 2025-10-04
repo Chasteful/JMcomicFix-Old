@@ -30,7 +30,7 @@ import net.minecraft.util.Identifier
  * Protects you from potentially annoying screen effects that block your view.
  */
 @Suppress("MagicNumber")
-object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = arrayOf("NoRender")) {
+object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = listOf("NoRender")) {
     /**
      * @see Items.CARVED_PUMPKIN
      * @see net.minecraft.client.gui.hud.InGameHud.renderMiscOverlays
@@ -42,6 +42,7 @@ object ModuleAntiBlind : ClientModule("AntiBlind", Category.RENDER, aliases = ar
         DoRender.ARMOR,
         DoRender.MOB_IN_SPAWNER,
         DoRender.CAPE,
+        DoRender.ARROW,
         DoRender.ENCHANT_TABLE_BOOK,
         DoRender.EAT_PARTICLES,
         DoRender.BLOCK_BREAK_PARTICLES,
@@ -79,6 +80,7 @@ enum class DoRender(override val choiceName: String) : NamedChoice {
     DARKNESS("Darkness"),
     NAUSEA("Nausea"),
     ARMOR("Armor"),
+    ARROW("Arrow"),
     CAPE("Cape"),
     MOB_IN_SPAWNER("MobInSpawner"),
     ENCHANT_TABLE_BOOK("EnchantTableBook"),

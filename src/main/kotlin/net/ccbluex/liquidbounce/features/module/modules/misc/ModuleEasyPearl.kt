@@ -31,7 +31,7 @@ import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
-import net.ccbluex.liquidbounce.utils.aiming.projectiles.BasicLandingPointAngleCalculator
+import net.ccbluex.liquidbounce.utils.aiming.projectiles.BasicPointAngleCalculator
 import net.ccbluex.liquidbounce.utils.block.getState
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.markAsError
@@ -57,7 +57,7 @@ import net.minecraft.util.math.Vec3d
  **/
 @Suppress("MagicNumber")
 object ModuleEasyPearl :
-    ClientModule("EasyPearl", Category.MISC, aliases = arrayOf("PearlHelper", "PearlAssist", "PearlTP")) {
+    ClientModule("EasyPearl", Category.MISC, aliases = listOf("PearlHelper", "PearlAssist", "PearlTP")) {
     private val aimOffThreshold by float("AimOffThreshold", 2f, 0.5f..10f)
     private val reachableCheck by boolean("ReachableCheck", true)
     private val rotation = tree(RotationsConfigurable(this))
@@ -73,7 +73,11 @@ object ModuleEasyPearl :
     @Suppress("unused")
     private val interactItemHandler = handler<PlayerInteractItemEvent> { event ->
         if (ModuleStuck.enabled) return@handler
-        if (!isHoldingPearl() || !mc.options.useKey.isPressed) {
+        if (!mc.options.useKey.isPressed && !ModuleMiddleClickAction.Pearl.wasPressed) {
+            return@handler
+        }
+
+        if (!isHoldingPearl() ) {
             return@handler
         }
 
@@ -211,7 +215,7 @@ object ModuleEasyPearl :
      * @return the target rotation for the target position
      */
     private fun getTargetRotation(targetPosition: Vec3d): Rotation? =
-        BasicLandingPointAngleCalculator.calculateAngleFor(
+        BasicPointAngleCalculator.calculateAngleFor(
             TrajectoryInfo.GENERIC,
             player.eyePos.add(player.getRotationVec(0f).multiply(0.16)),
             ConstantPositionExtrapolation(targetPosition),

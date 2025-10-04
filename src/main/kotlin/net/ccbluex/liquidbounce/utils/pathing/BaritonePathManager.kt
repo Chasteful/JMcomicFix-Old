@@ -2,15 +2,16 @@ package net.ccbluex.liquidbounce.utils.pathing
 
 import baritone.api.BaritoneAPI
 import baritone.api.Settings
-import baritone.api.utils.SettingsUtil
 import baritone.api.pathing.goals.Goal
 import baritone.api.pathing.goals.GoalGetToBlock
 import baritone.api.pathing.goals.GoalXZ
+import baritone.api.utils.SettingsUtil
 import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.event.EventListener
-import net.ccbluex.liquidbounce.event.SequenceManager
-import net.ccbluex.liquidbounce.event.TickSequence
+import net.ccbluex.liquidbounce.event.events.GameTickEvent
+import net.ccbluex.liquidbounce.event.sequenceHandler
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.FIRST_PRIORITY
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.Vec3d
@@ -51,13 +52,14 @@ class BaritonePathManager(val parent: EventListener) : Configurable("Pathing"), 
     private var pathingPaused = false
 
     init {
-        SequenceManager.sequences += TickSequence(this) {
-            val settings = BaritoneAPI.getSettings() ?: return@TickSequence
+        sequenceHandler<GameTickEvent>(priority = FIRST_PRIORITY) {
+            val settings = BaritoneAPI.getSettings() ?: return@sequenceHandler
             syncSettingsToBaritone(settings)
 
             directionGoal?.tick()
         }
     }
+
 
     val isPathing: Boolean
         get() = BaritoneAPI.getProvider().primaryBaritone?.pathingBehavior?.isPathing ?: false

@@ -40,7 +40,7 @@
         useGarbled
     } from "../../../../util/Theme/NameProtectManager";
     import {Interval} from "../../../../util/timeout_utils";
-    import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
+    import ItemStackDisplay from "../../common/ItemView/ItemStackDisplay.svelte";
 
     const ALERT_DISPLAY_DURATION_MS = 2500;
     const INVENTORY_FULL_COOLDOWN_MS = 30000;
@@ -77,7 +77,9 @@
 
     let progressEvent: ProgressEvent | null = null;
     let playerData: PlayerData | null = null;
-
+    let ripples: { id: number, index: number }[] = [];
+    let rippleCounter = 0;
+    let prevOpenChest: ItemStack[] = [];
     let currentAlert: Alert | null = null;
     let alertHideTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let lastInventoryFullAlertTime = 0;
@@ -513,7 +515,7 @@
     }
 
 
-    $: if (openChest.length > 0 && currentContent !== 'alert' && !initialAnimation && progressEvent?.title === "ChestStealer") {
+    $: if ((openChest.length > 0 && currentContent !== 'alert' && !initialAnimation) && progressEvent?.title === "ChestStealer") {
         switchContent('chest');
     } else if (openChest.length === 0 && currentContent === 'chest' && !initialAnimation) {
         switchContent('status');
@@ -571,8 +573,26 @@
         playerData = newData;
     });
     listen("clientPlayerInventory", (data: ClientPlayerInventoryEvent) => {
-        openChest = data.inventory.openChest ?? [];
+        const newOpenChest = data.inventory.openChest ?? [];
+
+        newOpenChest.forEach((stack, index) => {
+            const prevStack = prevOpenChest[index];
+            if (
+                prevStack &&
+                prevStack.identifier !== "minecraft:air" &&
+                stack.identifier === "minecraft:air"
+            ) {
+                const rippleId = rippleCounter++;
+                ripples = [...ripples, {id: rippleId, index}];
+                setTimeout(() => {
+                    ripples = ripples.filter(r => r.id !== rippleId);
+                }, 400);
+            }
+        });
+
+        prevOpenChest = newOpenChest.map(stack => ({...stack}));
     });
+
     listen("nameProtectValueChange", async () => {
         const settings = await getModuleSettings("NameProtect");
         NameProtectSetting(settings);
@@ -625,9 +645,20 @@
                          in:fade={{ duration: 150 }}
                          bind:this={contentRefs.chest}>
                         <div class="chest-container">
-                            {#each openChest as stack (stack)}
-                                <ItemStackView {stack}/>
+                            {#each openChest as stack, index (`${index}-${stack.identifier}-${stack.count}`)}
+                                <div class="item-stack-wrapper" style="position: relative;">
+                                    <ItemStackDisplay
+                                            {stack}
+                                            dyedMode={true}
+                                            showDurability={stack.damage > 0}
+                                            durabilityColorMode={true}
+                                    />
+                                    {#each ripples.filter(r => r.index === index) as ripple (ripple.id)}
+                                        <div class="ripple"></div>
+                                    {/each}
+                                </div>
                             {/each}
+
                         </div>
                     </div>
                 {:else}
@@ -794,6 +825,36 @@
     width: 100%;
     justify-content: center;
   }
+
+  .item-stack-wrapper {
+    position: relative;
+  }
+
+  .ripple {
+    position: absolute;
+    top: -16px;
+    left: -16px;
+    width: 64px;
+    height: 64px;
+    background: rgba($key-color, 0.5);
+    border-radius: 50%;
+    z-index: 1;
+    pointer-events: none;
+    animation: rippleEffect 0.4s ease-out forwards;
+    transform-origin: center;
+  }
+
+  @keyframes rippleEffect {
+    0% {
+      transform: scale(0);
+      opacity: 0.4;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+
 
   .notification-content {
     display: flex;

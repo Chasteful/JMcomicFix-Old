@@ -30,7 +30,6 @@ import net.ccbluex.liquidbounce.utils.block.raycast
 import net.ccbluex.liquidbounce.utils.block.searchBlocksInCuboid
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.client.notification
-import net.ccbluex.liquidbounce.utils.client.sendPacketSilently
 import net.ccbluex.liquidbounce.utils.combat.CombatManager
 import net.ccbluex.liquidbounce.utils.entity.PlayerSimulationCache
 import net.ccbluex.liquidbounce.utils.entity.VoidFallPredictor
@@ -57,7 +56,6 @@ import net.minecraft.entity.Entity
 import net.minecraft.entity.projectile.ProjectileUtil
 import net.minecraft.entity.projectile.thrown.EnderPearlEntity
 import net.minecraft.item.Items
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket
 import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket
 import net.minecraft.state.property.Properties
 import net.minecraft.util.ActionResult
@@ -108,7 +106,6 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
         val hazardSection by color("Hazard", Color4b.Companion.RED.withAlpha(75))
     }
     init {
-
         tree(PlayerTrajectory)
     }
     private val rotationConfig = tree(RotationsConfigurable(this))
@@ -168,10 +165,9 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
     override val running: Boolean
         get() =
             super.running
-                && !(ModuleAutoStuck.shouldActivate || (ModuleAutoStuck.enabled && ModuleAutoStuck.immediately))
+                && !(ModuleAutoStuck.shouldActivate)
                 && !(onlyDuringCombat && !CombatManager.isInCombat)
                 && !ModuleScaffold.running
-                && !ModuleStuck.running
                 && !ModuleAirJump.running
                 && !ModuleFly.running
 
@@ -209,19 +205,24 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
     @Suppress("unused")
     private val packetEventHandler = handler<PacketEvent> { event ->
         if (!isPearlInFlight) return@handler
-        if (event.packet is PlayerPositionLookS2CPacket) {
-            isPearlInFlight = false
-            pearlThrownTick = 0L
-            notification(
-                "AutoClutch",
-                "Pearl landed, resuming calculations.",
-                NotificationEvent.Severity.INFO
-            )
-            if (!voidFallPrediction.isPlayerSafe()) {
-                triggerPosition = player.pos
-                state = State.FINDING_PEARL
-            } else {
-                state = State.IDLE
+        when (val packet = event.packet) {
+            is PlayerPositionLookS2CPacket-> {
+                if (allowClutchWithStuck && ModuleStuck.enabled){
+                    ModuleStuck.enabled = false
+                }
+                isPearlInFlight = false
+                pearlThrownTick = 0L
+                notification(
+                    "AutoClutch",
+                    "Pearl landed, resuming calculations.",
+                    NotificationEvent.Severity.INFO
+                )
+                if (!voidFallPrediction.isPlayerSafe()) {
+                    triggerPosition = player.pos
+                    state = State.FINDING_PEARL
+                } else {
+                    state = State.IDLE
+                }
             }
         }
     }
@@ -571,7 +572,7 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
             }
 
             if (entityHitResult != null && entityHitResult.type != HitResult.Type.MISS) {
-                return entityHitResult.pos
+                return null
             }
 
             pos = newPos
@@ -768,32 +769,29 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
             resetAllVariables()
             return
         }
-
+        val pearlSlot = Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL)?.hotbarSlotForServer
         if (!mc.options.pickItemKey.isPressed) {
             bestSolution?.let { sol ->
                 if (allowClutchWithStuck) {
-                    sendPacketSilently(
-                        PlayerMoveC2SPacket.LookAndOnGround(
-                            sol.yaw, sol.pitch, player.isOnGround, player.horizontalCollision
-                        )
-                    )
+                    player.yaw = sol.yaw
+                    player.pitch = sol.pitch
                 } else {
                     RotationManager.setRotationTarget(
                         rotationConfig.toRotationTarget(sol),
                         priority = Priority.IMPORTANT_FOR_USAGE_1,
                         provider = this
                     )
+                    if (RotationManager.serverRotation.angleTo(sol) > aimPrecision) return@let
                 }
 
-                if (RotationManager.serverRotation.angleTo(sol) <= aimPrecision) {
-                    val pearlSlot = Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL)?.hotbarSlotForServer
-                    pearlSlot?.let { SilentHotbar.selectSlotSilently(this, it, 5) }
-                    state = State.THROWING
-                }
+                pearlSlot?.let { SilentHotbar.selectSlotSilently(this, it, 5) }
+                state = State.THROWING
             } ?: run {
                 state = State.IDLE
             }
         }
+
+
     }
 
     private fun throwPearl() {
@@ -821,7 +819,6 @@ object ModuleAutoClutch : ClientModule("AutoClutch", Category.PLAYER) {
             pearlThrownTick = player.age.toLong()
             scheduleSafetyCheck()
         }
-        ModuleStuck.enabled = false
         state = State.PAUSED
     }
 

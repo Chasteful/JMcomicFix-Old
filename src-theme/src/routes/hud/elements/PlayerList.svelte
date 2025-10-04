@@ -1,18 +1,24 @@
 <script lang="ts">
     import {listen} from "../../../integration/ws";
-    import type {OverlayPlayListEvent, KeyEvent, EventMap, PlayerEntry} from "../../../integration/events";
+    import type {
+        EventMap,
+        KeyEvent,
+        ModuleToggleEvent,
+        OverlayPlayListEvent,
+        PlayerEntry
+    } from "../../../integration/events";
     import TextComponent from "../../menu/common/TextComponent.svelte";
     import {onMount} from "svelte";
     import {getTextWidth} from '../../../integration/text_measurement';
     import {getMinecraftKeybinds, getModuleSettings} from "../../../integration/rest";
     import type {
+        ChoiceSetting,
         ConfigurableSetting,
         MinecraftKeybind,
         MultiChooseSetting,
-        ChoiceSetting,
         TextComponent as TTextComponent
     } from "../../../integration/types";
-    import AvatarView from "../common/PlayerView/AvatarView.svelte";
+    import AvatarView from "../common/Canvas/AvatarView.svelte";
     import {scale} from "svelte/transition";
     import {REST_BASE} from "../../../integration/host";
 
@@ -21,6 +27,7 @@
     let columns = 1;
     let rows = 1;
     let visible = false;
+    let keepTabList = false
     let columnWidths: number[] = [];
     let visibilityKeywords: string[] = [];
     let keyPlayerList: MinecraftKeybind | undefined;
@@ -109,6 +116,12 @@
         overlayPlayList = {players: sortPlayers(players), ...rest};
         players && calculateLayout(players);
     });
+    listen("moduleToggle", (e: ModuleToggleEvent) => {
+        if (e.moduleName === "KeepTabList") {
+            keepTabList = e.enabled;
+        }
+    });
+
     onMount(async () => {
         await updateKeybinds();
         const settings = await getModuleSettings("BetterTab");
@@ -120,7 +133,7 @@
 </script>
 
 
-{#if visible}
+{#if visible || keepTabList}
     <div class="tab-overlay" transition:scale={{duration:300}}>
         {#if overlayPlayList}
             <div class="tab-container hud-container">
@@ -144,10 +157,7 @@
                         >
                             {#if !isVisible("NameOnly")}
                                 <div class="avatar">
-                                    <div class="avatar-inner">
-                                        <AvatarView
-                                                skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${player.uuid}`}/>
-                                    </div>
+                                    <AvatarView skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${player.uuid}`}/>
                                 </div>
                             {/if}
                             <div class="player-name">
@@ -219,19 +229,15 @@
 
   .avatar {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+  }
 
-    .avatar-inner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(2.5);
-      transform-origin: center center;
-    }
+  .avatar :global(canvas) {
+    display: block;
+    max-width: 24px;
+    max-height: 24px;
   }
 
   .player-entry {

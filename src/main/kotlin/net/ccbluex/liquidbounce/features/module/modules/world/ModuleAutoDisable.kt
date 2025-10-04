@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.event.tickUntil
 //import net.ccbluex.liquidbounce.features.command.commands.module.CommandAutoDisable
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -103,9 +104,9 @@ object ModuleAutoDisable : ClientModule("AutoDisable", Category.WORLD) {
     @Suppress("unused")
     private val tickHandler = tickHandler {
         if (DisableOn.SPECTATOR in disableOn) {
-            waitUntil { player.isSpectator || player.abilities.flying }
+            tickUntil { player.isSpectator || player.abilities.flying }
             disableAndNotify("spectator")
-            waitUntil { !player.isSpectator && !player.abilities.flying }
+            tickUntil { !player.isSpectator && !player.abilities.flying }
         }
     }
 

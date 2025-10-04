@@ -23,7 +23,6 @@ package net.ccbluex.liquidbounce.utils.inventory
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.item.Item
 import net.minecraft.item.ItemStack
-import kotlin.collections.filter
 
 fun <T : HotbarItemSlot> SlotGroup<T>.findClosestSlot(item: Item): T? =
     findClosestSlot { it.item === item }

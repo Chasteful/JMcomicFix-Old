@@ -254,7 +254,6 @@ export interface PlayerData {
 }
 
 export interface StatusEffect {
-    id: any;
     effect: string;
     localizedName: string;
     duration: number;
@@ -525,6 +524,19 @@ export interface Vector2f {
     y: number;
 }
 
+export interface BedState {
+    block: string;
+    trackedBlockPos: Vec3;
+    pos: Vec3;
+    surroundingBlocks: SurroundingBlock[];
+    compactSurroundingBlocks: SurroundingBlock[];
+}
+
+export interface SurroundingBlock {
+    block: string;
+    count: number;
+    layer: number;
+}
 
 type MouseKeyName =
     | "left"

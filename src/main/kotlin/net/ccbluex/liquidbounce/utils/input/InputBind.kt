@@ -28,7 +28,7 @@ import net.ccbluex.liquidbounce.utils.kotlin.emptyEnumSet
 import net.minecraft.client.util.InputUtil
 import net.minecraft.util.Util
 import org.lwjgl.glfw.GLFW
-import java.util.EnumSet
+import java.util.*
 
 /**
  * Data class representing a key binding.

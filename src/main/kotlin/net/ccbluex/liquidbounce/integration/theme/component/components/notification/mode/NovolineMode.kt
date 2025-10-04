@@ -11,6 +11,7 @@ import net.ccbluex.liquidbounce.integration.theme.component.components.notificat
 import net.ccbluex.liquidbounce.integration.theme.component.components.notification.NotificationComponent.size
 import net.ccbluex.liquidbounce.integration.theme.component.components.notification.NotificationMode
 import net.ccbluex.liquidbounce.render.FontManager
+import net.ccbluex.liquidbounce.render.VertexInputType
 import net.ccbluex.liquidbounce.render.drawCustomMesh
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.renderEnvironmentForGUI
@@ -18,7 +19,6 @@ import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientRes
 import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.gui.DrawContext
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import java.util.Locale
 
 object NovolineMode : NotificationMode("Novoline") {
@@ -26,10 +26,16 @@ object NovolineMode : NotificationMode("Novoline") {
     private val fontRenderer
         get() = FontManager.FONT_RENDERER
 
-    private val successTexture = "image/hud/notification/success.png".registerAsDynamicImageFromClientResources()
-    private val disabledTexture = "image/hud/notification/disabled.png".registerAsDynamicImageFromClientResources()
-    private val errorTexture = "image/hud/notification/error.png".registerAsDynamicImageFromClientResources()
-    private val infoTexture = "image/hud/notification/info.png".registerAsDynamicImageFromClientResources()
+    private val textures by lazy {
+        listOf("success", "disabled", "error", "info").associateWith {
+            "image/hud/notification/$it.png".registerAsDynamicImageFromClientResources()
+        }
+    }
+
+    private val successTexture get() = textures.getValue("success")
+    private val disabledTexture get() = textures.getValue("disabled")
+    private val errorTexture get() = textures.getValue("error")
+    private val infoTexture get() = textures.getValue("info")
 
     private data class NotificationData(
         val title: String,
@@ -166,8 +172,7 @@ object NovolineMode : NotificationMode("Novoline") {
 
             drawCustomMesh(
                 VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
+                VertexInputType.PosTexColor,
             ) { mat ->
                 vertex(mat, 0f, 0f, 0f).texture(0f, 0f).color(255, 255, 255, (255 * notification.alpha).toInt())
                 vertex(mat, 64f, 0f, 0f).texture(1f, 0f).color(255, 255, 255, (255 * notification.alpha).toInt())

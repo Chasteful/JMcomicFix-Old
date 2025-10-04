@@ -37,7 +37,7 @@ object Refill : ToggleableConfigurable(ModuleAutoBuff, "Refill", true) {
 
     private val inventoryConstraints = tree(PlayerInventoryConstraints())
 
-    @Suppress("LongMethod")
+    @Suppress("LongMethod","CognitiveComplexMethod")
     fun execute(event: ScheduleInventoryActionEvent) {
         // Check if we have space in the hotbar
         val player = mc.player ?: return

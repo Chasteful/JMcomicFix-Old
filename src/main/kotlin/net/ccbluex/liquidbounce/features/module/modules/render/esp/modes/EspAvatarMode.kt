@@ -3,24 +3,17 @@ package net.ccbluex.liquidbounce.features.module.modules.render.esp.modes
 import com.mojang.blaze3d.systems.RenderSystem
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
-import net.ccbluex.liquidbounce.features.module.modules.exploit.ModuleClip
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleChams
-import net.ccbluex.liquidbounce.features.module.modules.render.esp.ModuleESP.getColor
-import net.ccbluex.liquidbounce.render.WorldRenderEnvironment
-import net.ccbluex.liquidbounce.render.drawCustomMesh
+import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
-import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
 import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.canSeeEntity
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
-import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.util.math.MathHelper
 
-object EspAvatarMode : EspMode("Avatar", requiresTrueSight = true) {
+object EspAvatarMode : EspMode("Avatar") {
 
     private val size by float("ImageSize", 1f, 0.25f..1f)
     private val opacity by float("Opacity", 1f, 0.5f..1f)
@@ -29,7 +22,8 @@ object EspAvatarMode : EspMode("Avatar", requiresTrueSight = true) {
 
     @Suppress("unused")
     private val renderHandler = handler<WorldRenderEvent> { event ->
-        val entities = RenderedEntities.filter { it is PlayerEntity && it != mc.player }
+        val player = mc.player?:return@handler
+        val entities = RenderedEntities.filter { it is PlayerEntity && it != player }
 
         if (entities.isEmpty()) return@handler
         if (ModuleChams.running && !alsoChams){
@@ -39,7 +33,7 @@ object EspAvatarMode : EspMode("Avatar", requiresTrueSight = true) {
         renderEnvironmentForWorld(event.matrixStack) {
             entities.forEach { entity ->
                 if (entity !is PlayerEntity) return@forEach
-                if (mc.player!!.canSeeEntity(entity, samples)) return@forEach
+                if (player.canSeeEntity(entity, samples)) return@forEach
                 renderAvatarAtEntity(entity, event.partialTicks)
             }
 
@@ -68,8 +62,7 @@ object EspAvatarMode : EspMode("Avatar", requiresTrueSight = true) {
 
             drawCustomMesh(
                 VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
+                VertexInputType.PosTexColor,
             ) { matrix ->
                 vertex(matrix, 0f, 0f, 0f).texture(8f/64f, 16f/64f).color(color.toARGB())
                 vertex(matrix, 1f, 0f, 0f).texture(16f/64f, 16f/64f).color(color.toARGB())
@@ -79,8 +72,7 @@ object EspAvatarMode : EspMode("Avatar", requiresTrueSight = true) {
 
             drawCustomMesh(
                 VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
+                VertexInputType.PosTexColor,
             ) { matrix ->
                 vertex(matrix, 0f, 0f, 0.001f).texture(40f/64f, 16f/64f).color(color.toARGB())
                 vertex(matrix, 1f, 0f, 0.001f).texture(48f/64f, 16f/64f).color(color.toARGB())

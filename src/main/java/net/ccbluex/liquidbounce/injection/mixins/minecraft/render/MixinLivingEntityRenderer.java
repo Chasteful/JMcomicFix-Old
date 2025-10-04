@@ -31,6 +31,7 @@ import net.ccbluex.liquidbounce.interfaces.EntityRenderStateAddition;
 import net.ccbluex.liquidbounce.render.engine.type.Color4b;
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager;
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation;
+import net.ccbluex.liquidbounce.utils.combat.CombatExtensionsKt;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.RenderLayer;
@@ -144,13 +145,13 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
         var chams = ModuleChams.INSTANCE;
 
 
+        var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
         if (ModuleTrueSight.canRenderEntities(state)) {
             color = trueSight.getRunning() && trueSight.getEntities()
                     ? trueSight.getEntityColor().toARGB()
                     : ESP_TRUE_SIGHT_REQUIREMENT_COLOR;
-        } else if (chams.getRunning()) {
+        } else if (chams.getRunning()&& CombatExtensionsKt.shouldBeShown(entity)) {
 
-            var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
             if (!entity.isInvisible()) {
                 color = chams.getColor((LivingEntity) entity).toARGB();
             }
@@ -169,10 +170,10 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
             state.invisible = false;
             return RenderLayer.getItemEntityTranslucentCull(this.getTexture(state));
         }
-
+        var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
         var chams = ModuleChams.INSTANCE;
-        if (chams.getRunning()) {
-            var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
+        if (chams.getRunning() && CombatExtensionsKt.shouldBeShown(entity)) {
+
             if (!entity.isInvisible()) {
                 return RenderLayer.getItemEntityTranslucentCull(this.getTexture(state));
             }

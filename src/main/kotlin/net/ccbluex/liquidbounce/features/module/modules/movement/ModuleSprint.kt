@@ -1,10 +1,28 @@
+/*
+ * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
+ *
+ * Copyright (c) 2015 - 2025 CCBlueX
+ *
+ * LiquidBounce is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LiquidBounce is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
+ */
 package net.ccbluex.liquidbounce.features.module.modules.movement
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
+import net.ccbluex.liquidbounce.event.events.PlayerJumpEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
-import net.ccbluex.liquidbounce.event.events.PlayerJumpEvent
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features.ScaffoldSprintControlFeature
@@ -12,12 +30,14 @@ import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsConfigurable
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.features.MovementCorrection
+import net.ccbluex.liquidbounce.utils.client.fastCos
+import net.ccbluex.liquidbounce.utils.client.fastSin
+import net.ccbluex.liquidbounce.utils.client.toRadians
 import net.ccbluex.liquidbounce.utils.entity.getMovementDirectionOfInput
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.CRITICAL_MODIFICATION
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen
-import net.minecraft.util.math.MathHelper
 
 /**
  * Sprint module
@@ -25,7 +45,7 @@ import net.minecraft.util.math.MathHelper
  * Sprints automatically.
  */
 
-object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT) {
+object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT, state = true) {
 
     private enum class SprintMode(override val choiceName: String) : NamedChoice {
         LEGIT("Legit"),
@@ -80,6 +100,7 @@ object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT) {
             event.sprint = false
         }
     }
+
     @Suppress("unused")
     private val jumpHandler = handler<PlayerJumpEvent> { event ->
         if (sprintMode == SprintMode.OMNIDIRECTIONAL && shouldSprintOmnidirectional) {
@@ -87,6 +108,7 @@ object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT) {
             event.yaw = getMovementDirectionOfInput(player.yaw, DirectionalInput(player.input))
         }
     }
+
     // DO NOT USE TREE TO MAKE SURE THAT THE ROTATIONS ARE NOT CHANGED
     private val rotationsConfigurable = RotationsConfigurable(this)
 
@@ -114,24 +136,22 @@ object ModuleSprint : ClientModule("Sprint", Category.MOVEMENT) {
         return screen as? GenericContainerScreen
     }
 
-    @Suppress("MagicNumber")
-    fun shouldPreventSprint(): Boolean {
+    private fun shouldPreventSprint(): Boolean {
         // Check if chest screen is open and StopOn.CHEST is enabled
         if (StopOn.CHEST in stopOn && getChestScreen() != null) {
             return true
         }
 
-        val deltaYaw = player.yaw - (RotationManager.currentRotation ?: return false).yaw
-        val (forward, sideways) = Pair(player.input.movementForward, player.input.movementSideways)
+        val deltaYawRad = (player.yaw - (RotationManager.currentRotation ?: return false).yaw).toRadians()
+        val forward = player.input.movementForward
+        val sideways = player.input.movementSideways
 
-        val hasForwardMovement = forward * MathHelper.cos(deltaYaw * 0.017453292f) + sideways *
-            MathHelper.sin(deltaYaw * 0.017453292f) > 1.0E-5
-        val preventSprint = (if (player.isOnGround) StopOn.GROUND in stopOn else StopOn.AIR in stopOn)
+        val hasForwardMovement = forward * deltaYawRad.fastCos() + sideways * deltaYawRad.fastSin() > 1.0E-5
+
+        return (if (player.isOnGround) StopOn.GROUND in stopOn else StopOn.AIR in stopOn)
             && !shouldSprintOmnidirectional
             && RotationManager.activeRotationTarget?.movementCorrection == MovementCorrection.OFF
             && !hasForwardMovement
-
-        return running && preventSprint
     }
 
     private enum class Ignore(override val choiceName: String) : NamedChoice {

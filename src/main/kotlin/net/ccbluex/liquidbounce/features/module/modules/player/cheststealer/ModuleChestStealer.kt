@@ -39,8 +39,6 @@ import net.minecraft.client.gui.screen.Screen
 import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.item.ItemStack
 import net.minecraft.screen.ScreenHandlerType
-import net.ccbluex.liquidbounce.utils.item.*
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen
 import net.minecraft.text.Text
 import java.util.EnumSet
 import kotlin.math.ceil
@@ -380,7 +378,8 @@ object ModuleChestStealer : ClientModule("ChestStealer", Category.PLAYER) {
         cleanupPlan: InventoryCleanupPlan,
         screen: HandledScreen<*>
     ): Boolean? {
-        for (hotbarSwap in cleanupPlan.swaps) {
+        for (i in cleanupPlan.swaps.indices) {
+            val hotbarSwap = cleanupPlan.swaps[i]
             // We only care about swaps from the chest to the hotbar
             if (hotbarSwap.from.slotType != ItemSlotType.CONTAINER) {
                 continue

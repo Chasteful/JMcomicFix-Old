@@ -3,11 +3,13 @@ package net.ccbluex.liquidbounce.render
 import com.mojang.blaze3d.platform.GlStateManager
 import com.mojang.blaze3d.systems.RenderSystem
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.utils.RenderUtils
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.render.VertexFormat
 import net.minecraft.client.render.VertexFormats
 import net.minecraft.util.math.Vec3d
+import org.joml.Vector3f
 import kotlin.math.sin
 
 private val glowTexture = "particles/glow.png".registerAsDynamicImageFromClientResources()
@@ -29,9 +31,11 @@ private val glowTexture = "particles/glow.png".registerAsDynamicImageFromClientR
  * @param distanceLimit Optional distance range for limiting rendering (min, max).
  */
 
-@Suppress("CognitiveComplexMethod","LongMethod","LongParameterList")
+@Suppress("CognitiveComplexMethod","LongMethod","LongParameterList","BracesOnIfStatements")
 fun drawSparkleTrail(
-    positions: Collection<Pair<Vec3d, Long>>,
+    positions: FloatArray,
+    creationTimes: LongArray,
+    totalSize: Int,
     env: WorldRenderEnvironment,
     size: Float,
     currentTime: Long,
@@ -46,11 +50,11 @@ fun drawSparkleTrail(
     shrinkDuration: Float = 5f,
     distanceLimit: Pair<Float, Float>? = null,
     cameraPos: Vec3d,
-    right: Vec3d,
-    up: Vec3d,
+    right: Vector3f,
+    up: Vector3f,
     time: Double
 ) {
-    if (positions.isEmpty()) return
+    if (totalSize == 0) return
 
     RenderSystem.depthMask(false)
     RenderSystem.disableCull()
@@ -68,36 +72,26 @@ fun drawSparkleTrail(
     val maxDistSq1 = distanceLimit?.second?.let { it * it } ?: Float.MAX_VALUE
     val maxDistSq2 = distanceLimit?.first?.let { it * it } ?: Float.MAX_VALUE
 
-    val totalSize = positions.size
-    if (totalSize == 0) {
-        RenderSystem.enableDepthTest()
-        RenderSystem.depthMask(true)
-        return
-    }
-
     env.drawCustomMesh(
         VertexFormat.DrawMode.QUADS,
-        VertexFormats.POSITION_TEXTURE_COLOR,
-        ShaderProgramKeys.POSITION_TEX_COLOR
+        VertexInputType.PosTexColor,
     ) { mat ->
         var index = 0
-        val it = positions.iterator()
-        while (it.hasNext()) {
-            val entry = it.next()
-            val pos = entry.first
-            val creationTime = entry.second
+        while (index < totalSize) {
+            val base = index * 3
+            val px = positions[base].toDouble()
+            val py = positions[base + 1].toDouble()
+            val pz = positions[base + 2].toDouble()
+            val creationTime = creationTimes[index]
 
-            val cx = pos.x - cameraPos.x
-            val cy = pos.y - cameraPos.y
-            val cz = pos.z - cameraPos.z
-            val distSq = pos.squaredDistanceTo(cameraPos)
+            val cx = (px - cameraPos.x).toFloat()
+            val cy = (py - cameraPos.y).toFloat()
+            val cz = (pz - cameraPos.z).toFloat()
+            val distSq = (cx * cx + cy * cy + cz * cz).toDouble()
+
             if (distanceLimit != null) {
-                if (index % 10 != 0 && distSq > maxDistSq1) {
-                    index++; continue
-                }
-                if (index % 3 == 0 && distSq > maxDistSq2) {
-                    index++; continue
-                }
+                if (index % 10 != 0 && distSq > maxDistSq1) { index++; continue }
+                if (index % 3 == 0 && distSq > maxDistSq2) { index++; continue }
             }
 
             val life = (currentTime - creationTime).toFloat()
@@ -105,14 +99,10 @@ fun drawSparkleTrail(
             val progress = if (fade) 1f - (life / totalLife).coerceIn(0f, 1f) else 1f
             val fadeFactor = if (fade && life >= totalLife - fadeDuration) {
                 1f - ((life - (totalLife - fadeDuration)) / fadeDuration).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
+            } else 1f
             val shrinkFactor = if (shrink && life >= totalLife - shrinkDuration) {
                 1f - ((life - (totalLife - shrinkDuration)) / shrinkDuration).coerceIn(0f, 1f)
-            } else {
-                1f
-            }
+            } else 1f
 
             val quadSize = (size * shrinkFactor) * (0.5f + 0.5f * progress)
             val half = quadSize * 0.5f
@@ -125,31 +115,20 @@ fun drawSparkleTrail(
             val renderColor = color.withAlpha(alpha)
             val argb = renderColor.toARGB()
 
-            val rx = (right.x * half).toFloat()
-            val ry = (right.y * half).toFloat()
-            val rz = (right.z * half).toFloat()
-            val ux2 = (up.x * half).toFloat()
-            val uy2 = (up.y * half).toFloat()
-            val uz2 = (up.z * half).toFloat()
+            val rx = (right.x * half)
+            val ry = (right.y * half)
+            val rz = (right.z * half)
+            val ux2 = (up.x * half)
+            val uy2 = (up.y * half)
+            val uz2 = (up.z * half)
 
-            val v0x = (cx - rx - ux2).toFloat()
-            val v0y = (cy - ry - uy2).toFloat()
-            val v0z = (cz - rz - uz2).toFloat()
-            val v1x = (cx + rx - ux2).toFloat()
-            val v1y = (cy + ry - uy2).toFloat()
-            val v1z = (cz + rz - uz2).toFloat()
-            val v2x = (cx + rx + ux2).toFloat()
-            val v2y = (cy + ry + uy2).toFloat()
-            val v2z = (cz + rz + uz2).toFloat()
-            val v3x = (cx - rx + ux2).toFloat()
-            val v3y = (cy - ry + uy2).toFloat()
-            val v3z = (cz - rz + uz2).toFloat()
-
-            vertex(mat, v0x, v0y, v0z).texture(0f, 1f).color(argb)
-            vertex(mat, v1x, v1y, v1z).texture(1f, 1f).color(argb)
-            vertex(mat, v2x, v2y, v2z).texture(1f, 0f).color(argb)
-            vertex(mat, v3x, v3y, v3z).texture(0f, 0f).color(argb)
-
+            RenderUtils.emitQuadInline(argb,
+                cx, cy, cz,
+                mat,
+                rx, ry, rz,
+                ux2, uy2, uz2,
+                this
+            )
             index++
         }
     }

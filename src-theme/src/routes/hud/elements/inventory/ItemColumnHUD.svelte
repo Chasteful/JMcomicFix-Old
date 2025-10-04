@@ -2,15 +2,15 @@
     import {onMount} from "svelte";
     import type {
         ClientPlayerDataEvent,
-        PlayerInventory,
-        ClientPlayerInventoryEvent
+        ClientPlayerInventoryEvent,
+        PlayerInventory
     } from "../../../../integration/events";
     import type {ItemStack, PlayerData} from "../../../../integration/types";
     import {listen} from "../../../../integration/ws";
     import {getPlayerData, getPlayerInventory} from "../../../../integration/rest";
-    import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
     import {elasticOut} from 'svelte/easing';
     import {Tween} from "svelte/motion";
+    import ItemStackDisplay from "../../common/ItemView/ItemStackDisplay.svelte";
 
     let lastSlot = 0;
     let currentSlot = 0;
@@ -67,7 +67,12 @@
 
                         <div class="slot" class:active={i === currentSlot}>
                             <div class="item-icon">
-                                <ItemStackView {stack}/>
+                                <ItemStackDisplay
+                                        {stack}
+                                        dyedMode={true}
+                                        showDurability={stack.damage > 0}
+                                        durabilityColorMode={true}
+                                />
                             </div>
 
 

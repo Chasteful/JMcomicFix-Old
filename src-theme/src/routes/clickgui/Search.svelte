@@ -10,6 +10,7 @@
     import {quintOut} from 'svelte/easing';
     import {onMount, onDestroy, tick} from "svelte";
     import {showResults} from "./clickgui_store";
+    import {options} from "./Placeholder";
     import {get} from "svelte/store";
     import {writable} from 'svelte/store';
     import {Howl} from "howler";
@@ -54,109 +55,6 @@
 
     const recentPlaceholders: string[] = [];
     const maxRecent = 5;
-    const options = [
-        {text: "Ciallo~(∠・ω< )⌒★", weight: 2},//柚子厨真恶心
-        {text: "世界には多くの面白い事がありますが、一方的にそれらを探求しても幸せにはなれません，", weight: 1}, // Einstein携愛敬上
-        {text: "相互理解があってこそ、存在の概念が生まれます。", weight: 1}, // Einstein携愛敬上
-        {text: "人は幸せになる為に生きている。それがどんな形であれ、幸せを求める事に罪はない。", weight: 1}, // CLANNAD
-        {text: "大切なのは、過去じゃない。今、この瞬間をどう生きるかだ。", weight: 1}, // Fate/stay night
-        {text: "願いは叶えるもの。叶わないなら、それは願いじゃない。", weight: 1}, // 魔法少女まどか☆マギカ
-        {text: "この手が汚れてもいい。あなただけは守りたい。", weight: 1}, // Rewrite
-        {text: "奇跡は誰にでも起こるものじゃない。奇跡を起こすんだ。", weight: 1}, // Steins;Gate
-        {text: "涙の数だけ強くなれるよ。", weight: 1}, // Air
-        {text: "一番つらいのは、忘れようとすることだよ。", weight: 1}, // Kanon
-        {text: "ものの見方は自分で変わりますし、美しいも醜いも解釈次第です。", weight: 1}, // U-ena-空焰火少女
-        {text: "約束は、未来へと続く道しるべ。", weight: 1}, // Little Busters!
-        {text: "偽物だって、本物になり得る。", weight: 1}, // 月姫
-        {text: "優しさは時として、残酷なものだ。", weight: 1}, // 沙耶の唄
-        {text: "人は皆、誰かの英雄になれる。", weight: 1}, // Angel Beats!
-        {text: "知ってることに罪はないけど、知ってて何もしないのは否定できない罪だよね。", weight: 1},//秽翼的尤斯蒂娅
-        {text: "過去は変えられない。でも未来は変えられる。", weight: 1}, // Chaos;Child
-        {text: "愛とは、相手を理解しようとする努力のことだ。", weight: 1}, // 白色相簿2
-        {text: "傷つくことを恐れてたら、本当に大切なものまで失ってしまう。", weight: 1}, // CLANNAD
-        {text: "世界は美しくなんかない。そしてそれ故に、美しい。", weight: 1}, // 鬼哭街
-        {text: "誰かのために生きることは、自分自身を生きることでもある。", weight: 1}, // Summer Pockets
-        {text: "幸せとは、気付くものであって、探すものではない。", weight: 1}, // ハルカナソラ
-        {text: "人は忘れることで前に進める。でも、忘れてはいけないこともある。", weight: 1}, // メモリーズオフ
-        {text: "本当の強さとは、弱さを認めることだ。", weight: 1}, // グリザイアの果実
-        {text: "出会いには必ず意味がある。たとえそれが別れで終わっても。", weight: 1}, // サクラの詩
-        {text: "未来は一つじゃない。無数に枝分かれしている。", weight: 1}, // Ever17
-        {text: "愛してるとは、共に生きるということ。", weight: 1}, // 水仙
-        {text: "傷ついた心は、優しさでしか癒せない。", weight: 1}, // To Heart
-        {text: "夢を見ることは、現実を変える第一歩だ。", weight: 1}, // バルドスカイ
-        {text: "孤独とは、心の隙間を埋めるものがない状態だ。", weight: 1}, // 素晴らしき日々
-        {text: "真実はいつも一つとは限らない。", weight: 1}, // Remember11
-        {text: "人は変わることができる。それが人間の素晴らしさだ。", weight: 1}, // G弦上の魔王
-        {text: "大切なものは、失って初めてその価値に気づく。", weight: 1}, // 秋の回想
-        {text: "希望とは、自分で作り出すものだ。", weight: 1}, // 装甲悪鬼村正
-        {text: "誰もが星の欠片を持っている。光り続けるために。", weight: 1}, // 星の夢
-        {text: "過去に囚われるな。未来を恐れるな。今を生きろ。", weight: 1}, // Dies irae
-        {text: "愛とは、相手の幸せを願うことだ。", weight: 1}, // 君の名残は静かに揺れて
-        {text: "涙は弱さじゃない。本当の強さの証だ。", weight: 1}, // この大空に、翼をひろげて
-        {text: "人は皆、不完全だから美しい。", weight: 1}, // 穢翼のユースティア
-        {text: "信じることは、時として奇跡を起こす。", weight: 1}, // 11eyes
-        {text: "絆とは、離れていても心がつながっていること。", weight: 1}, // 遥かに仰ぎ、麗しの
-        {text: "本当の自分とは、自分で決めるものだ。", weight: 1}, // サクラノ詩
-        {text: "命は有限だからこそ輝く。", weight: 1}, // 腐り姫
-        {text: "優しさは、人を救う最大の武器だ。", weight: 1}, // はつゆきさくら
-        {text: "世界は残酷だ。でも美しい。", weight: 1}, // 鬼哭街
-        {text: "未来は変えられる。変えようと思えば。", weight: 1}, // Robotics;Notes
-        {text: "孤独は、人を強くもするし、脆くもする。", weight: 1}, // 素晴らしき日々
-        {text: "夢は逃げない。逃げるのはいつも自分だ。", weight: 1}, // バルドスカイ
-        {text: "真実は時として、人を傷つける。", weight: 1}, // ひぐらしのなく頃に
-        {text: "人は皆、誰かを救うために生まれてくる。", weight: 1}, // Angel Beats!
-        {text: "愛とは、相手の全てを受け入れること。", weight: 1}, // 月姫
-        {text: "傷は癒える。でも、傷跡は残る。それが生きるということだ。", weight: 1}, // Rewrite
-        {text: "希望は、絶望の向こう側にある。", weight: 1}, // ダンガンロンパ
-        {text: "人は皆、光と影を持っている。", weight: 1}, // シュタインズ・ゲート
-        {text: "一番大切なものは、目に見えない。", weight: 1}, // Air
-        {text: "生きる意味は、自分で見つけるものだ。", weight: 1}, // CLANNAD
-        {text: "世界は広い。でも、大切な場所はきっと近くにある。", weight: 1}, // サマーポケッツ
-        {text: "信じ続けることが、奇跡を呼ぶ。", weight: 1}, // リトルバスターズ!
-        {text: "涙は心の雨。やがて虹が架かる。", weight: 1},// Kanon
-        {text: "空気の重み、胸の震え", weight: 1}, // 魔法使いの夜
-        {text: "光が先を行き、影が後に続く。鳥は空を翔ける", weight: 1}, // 魔法使いの夜
-        {text: "魚は海を跳ねる。君は彼方に、不安と疑念に揺れる", weight: 1}, // 魔法使いの夜
-        {text: "すべてを胸にしまい、夜明けに旅立つ", weight: 1}, // 魔法使いの夜
-        {text: "星々が輝き、堕ちたこの地でも光は消えない", weight: 1}, // 魔法使いの夜
-        {text: "その光が、君の心を照らす", weight: 1}, // 魔法使いの夜
-        {text: "どの世界線にいても、君はひとりじゃない", weight: 1}, // シュタインズ・ゲート
-        {text: "どの世界線でも、必ず君を見つけ出す", weight: 1}, // シュタインズ・ゲート
-        {text: "君が僕を観測していたように、僕も君を観測し続ける", weight: 1}, // シュタインズ・ゲート
-        {text: "一昨日はうさぎ、昨日は鹿、そして今日は君", weight: 1}, // CLANNAD
-        {text: "朝の寒さに秋の深まりを感じ、静かな時を過ごす佳人", weight: 1}, // WHITE ALBUM2
-        {text: "幾度も心を砕きながら、春に雪を溶かし君に語る", weight: 1}, // WHITE ALBUM2
-        {text: "澄んだ瞳と黒髪の佳人、心を奪われたのはただ春のせい", weight: 1}, // WHITE ALBUM2
-        {text: "夢の中で秋の深まりに気づかず、残る想いは他の誰のためでもない", weight: 1}, // WHITE ALBUM2
-        {text: "この世界、前に進めば未来、後ろを見れば思い出。一片を取れば物語", weight: 1}, // グリザイアの果実
-        {text: "それは数多の物語の、ほんの氷山の一角にすぎない", weight: 1}, // グリザイアの果実
-        {text: "もし宇宙の歴史が一年なら、人の命はわずか0.1秒", weight: 1}, // Lunaria
-        {text: "僕たちは、その一瞬の『瞬き』の中で出会った", weight: 1}, // Lunaria
-        {text: "名前のないものは、感じられても理解はできない", weight: 1}, // 青空の下のカミュ
-        {text: "僕たちはまだ、悲しみを無視できるほど完璧じゃない", weight: 1}, // Harmonia
-        {text: "いや、それは完璧とは言えない", weight: 1}, // Harmonia
-        {text: "悲しみを感じられるからこそ、感情を持つことが許される", weight: 1}, // Harmonia
-        {text: "どこにでも行けるということは、どこにも居場所がないということ", weight: 1}, // ef - a tale of memories（悠久の翼）
-        {text: "行きたい場所も、帰れる場所もない……", weight: 1},// ef - a tale of memories（悠久の翼）
-        {text: "楽園と墓地は同義語ですか？", weight: 1}, // ATRI
-        {text: "宇宙に永遠なものなどない。だから物事の終わりを嘆いても意味がない。", weight: 1}, // ATRI
-        {text:"終わりを迎えるまでにどう過ごすかが重要なんだろう？",weight: 1},// ATRI
-        {text: "いつか死ぬからといって諦めるなら、人間の一生に意味なんてない。", weight: 1}, // ATRI
-        {text: "もし地球が救えなくても......地球には私も含まれますか？", weight: 1}, // ATRI
-        {text: "私にとって、あなたは地球の中心です。", weight: 1}, // ATRI
-        {text: "時よ止まれ、お前はなんて美しいんだ——", weight: 1}, // ATRI
-        {text: "過去を変えられないからこそ、人は今日を選ぶ。", weight: 1}, // Steins;Gate 0
-        {text: "機械と人間の差は、夢を見ることができるかどうかだ。", weight: 1}, // 攻殻機動隊
-        {text: "感情はデータではない。それは人間を人間たらしめるものだ。", weight: 1}, // 攻殻機動隊
-        {text: "世界は一つの実験場だ。観察者は常に自分自身である。", weight: 1}, // Steins;Gate
-        {text: "未来は選択の積み重ね。どこにも定まってはいない。", weight: 1}, // Steins;Gate
-        {text: "真実は信じる者だけに見える幻かもしれない。", weight: 1}, // PSYCHO-PASS
-        {text: "意識とは、自己を実現するためのコードである。", weight: 1}, // Serial Experiments Lain
-        {text: "時間はただの概念。記憶があれば永遠は存在する。", weight: 1}, // Steins;Gate 0
-        {text: "もし神がいるとしたら、それは人間の意志だ。", weight: 1}, // Eden of the East
-        {text: "シミュレーションか現実か。それを判断するのは感情だ。", weight: 1}, // パプリカ
-        {text: "人は誰しも、自分の可能性を恐れている。", weight: 1}, // PSYCHO-PASS
-    ];
 
     function removeHistoryItem(index: number) {
         searchHistory.update(history => {
@@ -207,6 +105,7 @@
     function handleEnterKey() {
         if ($query.length > 0) {
             addToHistory($query);
+            filterModules();
             showResults.set(true);
             showHistory = false;
         } else {
@@ -445,6 +344,7 @@
     });
 
     onDestroy(() => {
+        showResults.set(false);
         clearInterval(interval);
     });
     listen("moduleToggle", (e: ModuleToggleEvent) => {

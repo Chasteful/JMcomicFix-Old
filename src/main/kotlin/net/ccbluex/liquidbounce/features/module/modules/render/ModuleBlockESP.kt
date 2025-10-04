@@ -18,6 +18,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
+import com.google.common.collect.Sets
 import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.event.events.DrawOutlinesEvent
@@ -48,7 +49,7 @@ object ModuleBlockESP : ClientModule("BlockESP", Category.RENDER) {
     private val modes = choices("Mode", Glow, arrayOf(Box, Glow, Outline))
     private val targets by blocks(
         "Targets",
-        findBlocksEndingWith("_BED", "DRAGON_EGG")
+        Sets.newConcurrentHashSet(findBlocksEndingWith("_BED", "DRAGON_EGG"))
     ).onChange {
         if (running) {
             onDisabled()
@@ -104,7 +105,7 @@ object ModuleBlockESP : ClientModule("BlockESP", Category.RENDER) {
         ): Boolean {
             var dirty = false
 
-            BoxRenderer.drawWith(this) {
+            drawBoxes {
                 for (blockPos in blocks) {
                     val blockState = blockPos.getState() ?: continue
 

@@ -9,6 +9,7 @@ import net.ccbluex.liquidbounce.event.events.HudLayoutEditorValueChangeEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.sequenceHandler
+import net.ccbluex.liquidbounce.event.waitSeconds
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.integration.IntegrationListener
@@ -23,11 +24,10 @@ import net.minecraft.client.gui.screen.Screen
 import org.lwjgl.glfw.GLFW
 
 object ModuleHudEditor :
-    ClientModule("HudLayoutEditor", Category.CLIENT, bind = GLFW.GLFW_KEY_RIGHT_ALT, disableActivation = true) {
+    ClientModule("HudLayoutEditor", Category.CLIENT, disableActivation = true) {
 
     override val running = true
-
-
+    val background by float("BackGroundScale", 1.25f, 1f..1.5f)
 
     @Suppress("unused")
     private val StartEditor by boolean("StartEditor", false).onChanged { cache ->

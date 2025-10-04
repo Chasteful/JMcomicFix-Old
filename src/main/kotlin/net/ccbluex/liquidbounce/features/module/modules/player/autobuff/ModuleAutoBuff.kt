@@ -37,7 +37,7 @@ import net.minecraft.item.consume.UseAction
 object ModuleAutoBuff : ClientModule(
     name = "AutoBuff",
     category = Category.PLAYER,
-    aliases = arrayOf("AutoPot", "AutoGapple", "AutoSoup")
+    aliases = listOf("AutoPot", "AutoGapple", "AutoSoup")
 ) {
 
     /**

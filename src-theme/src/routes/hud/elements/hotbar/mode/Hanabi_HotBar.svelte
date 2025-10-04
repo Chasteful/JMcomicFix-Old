@@ -1,11 +1,12 @@
 <script lang="ts">
     import {listen} from "../../../../../integration/ws";
     import type {ClientPlayerDataEvent, ClientPlayerInventoryEvent} from "../../../../../integration/events";
-    import type {PlayerData, ItemStack, ClientInfo} from "../../../../../integration/types";
+    import type {ClientInfo, ItemStack, PlayerData} from "../../../../../integration/types";
     import {getClientInfo, getPlayerData, getPlayerInventory} from "../../../../../integration/rest";
     import {onMount} from "svelte";
-    import ItemIndexView from "../../../common/ItemView/ItemIndexView.svelte";
     import {clientName} from "../../../../../util/Theme/ThemeManager";
+    import {scaleFactor} from "../HotBar";
+    import ItemStackDisplay from "../../../common/ItemView/ItemStackDisplay.svelte";
 
     let currentSlot = 0;
     let playerData: PlayerData | null = null;
@@ -51,7 +52,7 @@
 </script>
 
 {#if playerData && clientInfo && playerData.gameMode !== "spectator"}
-    <div class="hotbar">
+    <div class="hotbar" style="transform: translateX(-50%) scale({$scaleFactor})">
         <div class="hotbar-elements">
             <div class="left-info">
                 <div class="ping">
@@ -67,7 +68,10 @@
                     {#each hotbar as stack (stack)}
                         <div class="slot">
                             {#if stack && stack.identifier !== "minecraft:air"}
-                                <ItemIndexView {stack}/>
+                                <ItemStackDisplay
+                                        {stack}
+                                        dyedMode={true}
+                                />
                             {/if}
                         </div>
                     {/each}
@@ -88,7 +92,6 @@
     position: fixed;
     bottom: 0;
     left: 50%;
-    transform: translateX(-50%) scale(1.5);
     width: 100vw;
   }
 

@@ -19,6 +19,8 @@
 package net.ccbluex.liquidbounce.features.module.modules.player.invcleaner
 
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
+import net.ccbluex.fastutil.component1
+import net.ccbluex.fastutil.component2
 import net.ccbluex.liquidbounce.event.events.ScheduleInventoryActionEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -27,10 +29,7 @@ import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items.
 import net.ccbluex.liquidbounce.features.module.modules.player.offhand.ModuleOffhand
 import net.ccbluex.liquidbounce.utils.inventory.*
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
-import net.ccbluex.liquidbounce.utils.kotlin.component1
-import net.ccbluex.liquidbounce.utils.kotlin.component2
 import net.ccbluex.liquidbounce.utils.session.GamingCheck
-import net.minecraft.screen.slot.SlotActionType
 
 /**
  * InventoryCleaner module
@@ -38,14 +37,14 @@ import net.minecraft.screen.slot.SlotActionType
  * Automatically throws away useless items and sorts them.
  */
 object ModuleInventoryCleaner : ClientModule("InventoryCleaner", Category.PLAYER,
-    aliases = arrayOf("InventoryManager")
+    aliases = listOf("InventoryManager")
 ) {
 
     private val inventoryConstraints = tree(PlayerInventoryConstraints())
 
     private val maxBlocks by int("MaximumBlocks", 512, 0..2500)
     private val maxArrows by int("MaximumArrows", 128, 0..2500)
-    private val maxThrowables by int("MaximumThrowables", 64, 0..600)
+    private val maxThrowables by int("MaximumThrowables", 64, 0..800)
     private val maxFoods by int("MaximumFoodPoints", 200, 0..2000)
 
     private val isGreedy by boolean("Greedy", true)

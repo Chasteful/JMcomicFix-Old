@@ -1,33 +1,15 @@
-<!--
-  - This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
-  -
-  - Copyright (c) 2015 - 2025 CCBlueX
-  -
-  - LiquidBounce is free software: you can redistribute it and/or modify
-  - it under the terms of the GNU General Public License as published by
-  - the Free Software Foundation, either version 3 of the License, or
-  - (at your option) any later version.
-  -
-  - LiquidBounce is distributed in the hope that it will be useful,
-  - but WITHOUT ANY WARRANTY; without even the implied warranty of
-  - MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-  - GNU General Public License for more details.
-  -
-  - You should have received a copy of the GNU General Public License
-  - along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
-  -->
-
 <script lang="ts">
     import {onMount} from "svelte";
     import type {
         ClientPlayerDataEvent,
-        PlayerInventory,
-        ClientPlayerInventoryEvent
+        ClientPlayerInventoryEvent,
+        PlayerInventory
     } from "../../../../../integration/events";
     import type {ItemStack, PlayerData} from "../../../../../integration/types";
     import {listen} from "../../../../../integration/ws";
     import {getPlayerData, getPlayerInventory} from "../../../../../integration/rest";
-    import ItemIndexView from "../../../common/ItemView/ItemIndexView.svelte";
+    import {scaleFactor} from "../HotBar";
+    import ItemStackDisplay from "../../../common/ItemView/ItemStackDisplay.svelte";
 
     let lastSlot = 0;
     let currentSlot = 0;
@@ -85,7 +67,7 @@
     });
 </script>
 
-<div class="hotbar-container">
+<div class="hotbar-container" style="transform: scale({$scaleFactor})">
     <div class="hotbar-track">
         {#each displayedStacks as {index, stack},i (stack)}
             <div
@@ -103,7 +85,10 @@
                     <div class="slot" class:active={index === currentSlot}>
                         <div class="item-icon">
                             {#if stack}
-                                <ItemIndexView stack={stack}/>
+                                <ItemStackDisplay
+                                        {stack}
+                                        dyedMode={true}
+                                />
                             {/if}
                         </div>
                         {#if index === currentSlot}

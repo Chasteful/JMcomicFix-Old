@@ -151,7 +151,9 @@ object ModuleTpAura : ClientModule("TpAura", Category.COMBAT, disableOnQuit = tr
     }
 }
 
-open class TpAuraChoice(name: String) : Choice(name) {
-    override val parent: ChoiceConfigurable<TpAuraChoice>
+abstract class TpAuraChoice(name: String) : Choice(name) {
+
+    final override val parent: ChoiceConfigurable<TpAuraChoice>
         get() = ModuleTpAura.mode
+
 }

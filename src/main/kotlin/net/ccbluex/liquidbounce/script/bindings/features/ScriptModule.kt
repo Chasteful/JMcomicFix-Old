@@ -19,14 +19,16 @@
 package net.ccbluex.liquidbounce.script.bindings.features
 
 import net.ccbluex.liquidbounce.config.types.Value
-import net.ccbluex.liquidbounce.event.*
+import net.ccbluex.liquidbounce.event.EVENT_NAME_TO_CLASS
+import net.ccbluex.liquidbounce.event.Event
+import net.ccbluex.liquidbounce.event.EventHook
+import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.RefreshArrayListEvent
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.script.PolyglotScript
 import net.ccbluex.liquidbounce.utils.client.*
 import java.util.function.Supplier
-import kotlin.reflect.KClass
 
 class ScriptModule(val script: PolyglotScript, moduleObject: Map<String, Any>) : ClientModule(
     name = moduleObject["name"] as String,
@@ -129,10 +131,10 @@ class ScriptModule(val script: PolyglotScript, moduleObject: Map<String, Any>) :
      */
     private fun hookHandler(eventName: String) {
         // Get event case-insensitive
-        val clazz = LOWERCASE_NAME_EVENT_MAP[eventName.lowercase()] ?: return
+        val clazz = EVENT_NAME_TO_CLASS[eventName] ?: return
 
         EventManager.registerEventHook(
-            clazz.java,
+            clazz,
             EventHook(
                 this,
                 {
@@ -140,13 +142,5 @@ class ScriptModule(val script: PolyglotScript, moduleObject: Map<String, Any>) :
                 }
             )
         )
-    }
-
-    companion object {
-        /**
-         * Maps the lowercase name of the event to the event's kotlin class
-         */
-        private val LOWERCASE_NAME_EVENT_MAP: Map<String, KClass<out Event>> =
-            ALL_EVENT_CLASSES.associateBy { it.eventName.lowercase() }
     }
 }

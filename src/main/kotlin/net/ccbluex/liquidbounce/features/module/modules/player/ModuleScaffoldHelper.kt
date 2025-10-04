@@ -23,7 +23,7 @@ import net.ccbluex.liquidbounce.utils.entity.isInVoid
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.minecraft.entity.player.PlayerEntity
 
-object ModuleScaffoldHelper : ClientModule("ScaffoldHelper", Category.WORLD, aliases = arrayOf("AutoScaffold")) {
+object ModuleScaffoldHelper : ClientModule("ScaffoldHelper", Category.WORLD, aliases = listOf("AutoScaffold")) {
     private val AutoJumpOnVoidEdge by boolean("AutoJumpAtVoidEdge",true)
     private val AutoDisable by boolean("AutoDisable", true)
     private val preserveInVoid by boolean("PreserveInVoid",false)
@@ -31,7 +31,7 @@ object ModuleScaffoldHelper : ClientModule("ScaffoldHelper", Category.WORLD, ali
     private val voidDisableTick by int("VoidDisableDelay", 50, 5..100, "tick")
     private val scaffoldBlockedTick by int("BlockedForFreeze",15,5..30,"tick")
     private val keepTick by int("KeepEnabledTicks",16,10..30,"tick")
-    private val SafeLandBlocks by int("SafeLandBlocks",3,2..5)
+    private val safeLandBlocks by int("SafeLandBlocks",3,3..5)
     private val notCondition by multiEnumChoice("Not", NotCondition.WHILE_SNEAKING)
 
     private var stuckTicks = 0
@@ -55,7 +55,7 @@ object ModuleScaffoldHelper : ClientModule("ScaffoldHelper", Category.WORLD, ali
 
     private fun isImminentVoid(): Boolean {
         val nextTick = PlayerSimulationCache.getSimulationForLocalPlayer().getSnapshotAt(3)
-        return isInVoid(nextTick.pos,checkOnGround = false)
+        return isInVoid(nextTick.pos, false)
     }
 
     @Suppress("unused")
@@ -88,7 +88,7 @@ object ModuleScaffoldHelper : ClientModule("ScaffoldHelper", Category.WORLD, ali
         }
     }
 
-    private fun hasSolidBelow(player: PlayerEntity, blocks: Int = SafeLandBlocks): Boolean {
+    private fun hasSolidBelow(player: PlayerEntity, blocks: Int = safeLandBlocks): Boolean {
         val startY = player.blockPos.y - 1
         for (yOffset in 0..(startY - world.bottomY - blocks + 1)) {
             var solidCount = 0

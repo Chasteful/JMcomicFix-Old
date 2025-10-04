@@ -1,5 +1,5 @@
 <script lang="ts">
-    import {onMount, tick} from "svelte";
+    import {afterUpdate, onMount, tick} from "svelte";
     import {Tween} from 'svelte/motion';
     import {cubicOut, quintOut} from 'svelte/easing';
     import {get, writable} from 'svelte/store';
@@ -159,7 +159,7 @@
         );
     }
 
-    function applyPanelConfig(config: PanelConfig, saveHistory = false) {
+    async function applyPanelConfig(config: PanelConfig, saveHistory = false) {
         if (saveHistory) {
             pushUndoState();
         }
@@ -169,14 +169,14 @@
             zIndex: config.zIndex === 0 ? 0 : ++$maxPanelZIndex
         });
 
+        await tick();
         fixPosition();
-        savePanelConfig();
+        await savePanelConfig();
 
-        tick().then(() => {
-            if (modulesElement) {
-                modulesElement.scrollTop = panelConfig.scrollTop;
-            }
-        });
+        await tick();
+        if (modulesElement) {
+            modulesElement.scrollTop = panelConfig.scrollTop;
+        }
     }
 
 
@@ -222,14 +222,14 @@
         panelElement.style.transition = "all 0.5s ease";
     }
 
-    function toggleExpanded() {
+    async function toggleExpanded() {
         if ($filteredModules.length > 0) return;
 
         pushUndoState();
         panelConfig.expanded = !panelConfig.expanded;
-
+        await tick();
         fixPosition();
-        savePanelConfig();
+        await savePanelConfig();
     }
 
     function handleModulesScroll() {
@@ -416,6 +416,28 @@
         expandedModuleName.subscribe(name => {
             if (name) localStorage.setItem(storageKey, name);
             else localStorage.removeItem(storageKey);
+        });
+        expandedModuleName.subscribe(async (name) => {
+            if (name && panelConfig.expanded) {
+                await tick();
+                fixPosition();
+
+                const index = renderedModules.findIndex((m) => m.name === name);
+                if (index !== -1 && modulesElement) {
+                    const targetEl = modulesElement.children[index] as HTMLElement;
+                    if (targetEl) {
+                        modulesElement.scrollTo({
+                            top: targetEl.offsetTop,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }
+        });
+        afterUpdate(async () => {
+            if (moving || !panelConfig.expanded) return;
+            await tick();
+            fixPosition();
         });
         const options = {passive: true};
         const keydownHandler = (e: KeyboardEvent) => handleKeydown(e);

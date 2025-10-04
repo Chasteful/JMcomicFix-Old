@@ -8,6 +8,8 @@ import net.ccbluex.liquidbounce.render.engine.type.Color4b.Companion.hslToRgb
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
 import net.minecraft.block.BlockState
 import net.minecraft.entity.LivingEntity
+import net.minecraft.item.ItemStack
+import net.minecraft.util.Formatting
 import net.minecraft.util.math.BlockPos
 
 abstract class GenericColorMode<in T>(name: String) : Choice(name) {
@@ -44,11 +46,13 @@ class GenericSyncColorMode(
         val themeColor = ModuleHud.getThemeColor()
         val start = themeColor.first.with(a = startAlpha)
         val end = themeColor.second.with(a = endAlpha)
-        return  end to start
+        return start to end
     }
 
     override fun getColor(param: Any?, angle: Int): Color4b {
-        return getColors(param).first
+        val (start, end) = getColors(param)
+        val progress = angle / 360.0
+        return start.interpolateTo(end, progress)
     }
 }
 
@@ -71,11 +75,10 @@ class GenericRainbowColorMode(
     }
 
     override fun getColor(param: Any?, angle: Int): Color4b {
-        val hue = ((System.currentTimeMillis() + angle) % 4000L) / 4000f
-        return hslToRgb(hue, saturation, lightness, alpha)
+        val baseHue = (((System.currentTimeMillis() % 4000) / 4000f) + (angle / 360.0)) % 1.0
+        return hslToRgb(baseHue.toFloat(), saturation, lightness, alpha)
     }
 }
-
 
 class GenericCustomColorMode(
     override val parent: ChoiceConfigurable<*>,
@@ -88,21 +91,12 @@ class GenericCustomColorMode(
 
     override fun getColors(param: Any?) = customStartColor to customEndColor
 
-
     override fun getColor(param: Any?, angle: Int): Color4b {
-        val progress = angle / 360f
-        return Color4b(
-            interpolate(customStartColor.r, customEndColor.r, progress),
-            interpolate(customStartColor.g, customEndColor.g, progress),
-            interpolate(customStartColor.b, customEndColor.b, progress),
-            interpolate(customStartColor.a, customEndColor.a, progress)
-        )
-    }
-
-    private fun interpolate(start: Int, end: Int, progress: Float): Int {
-        return (start + (end - start) * progress).toInt().coerceIn(0..255)
+        val progress = angle / 360.0
+        return customStartColor.interpolateTo(customEndColor, progress)
     }
 }
+
 
 class MapColorMode(
     override val parent: ChoiceConfigurable<*>,
@@ -145,6 +139,27 @@ class GenericEntityHealthColorMode(
         val green = (255 * healthPercentage).toInt().coerceIn(0..255)
 
         return Color4b(red, green, 0)
+    }
+}
+
+class GenericItemRarityColorMode(
+    override val parent: ChoiceConfigurable<*>
+) : GenericColorMode<Any?>("ItemRarity") {
+
+    override fun getColors(param: Any?): Pair<Color4b, Color4b> {
+        val color = getColor(param)
+        return color to color
+    }
+
+    override fun getColor(param: Any?): Color4b {
+        val stack = param as? ItemStack
+            ?: return Color4b(255, 255, 255, 255)
+        val rarity = stack.rarity
+        val colorValue = rarity.formatting.colorValue ?: 0xFFFFFF
+        val r = (colorValue shr 16) and 0xFF
+        val g = (colorValue shr 8) and 0xFF
+        val b = colorValue and 0xFF
+        return Color4b(r, g, b, 255)
     }
 }
 

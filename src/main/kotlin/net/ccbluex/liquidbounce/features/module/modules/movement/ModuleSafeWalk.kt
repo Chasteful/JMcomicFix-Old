@@ -52,7 +52,6 @@ object ModuleSafeWalk : ClientModule("SafeWalk", Category.MOVEMENT) {
             super.running
                 &&!ModuleScaffold.running
 
-    private val voidThreshold by int("VoidLevel", 0, -256..256)
     private val ticksToPredict by int("TicksToPredict", 10, 10..100,"tick")
 
     @Suppress("UnusedPrivateProperty","Unused")
@@ -107,7 +106,7 @@ object ModuleSafeWalk : ClientModule("SafeWalk", Category.MOVEMENT) {
         ) { event ->
             //Usually 2 ticks are enough,but we have to make sure players are 100% safe.
             val nextTick = PlayerSimulationCache.getSimulationForLocalPlayer().getSnapshotAt(ticksToPredict)
-            val shouldBeActive = player.isOnGround && !event.sneak  && isInVoid(nextTick.pos, voidThreshold)
+            val shouldBeActive = player.isOnGround && !event.sneak && isInVoid(nextTick.pos, false)
             if (shouldBeActive) {
                 val isOnEdge = player.isCloseToEdge(
                     event.directionalInput,

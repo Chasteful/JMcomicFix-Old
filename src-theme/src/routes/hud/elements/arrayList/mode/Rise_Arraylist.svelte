@@ -1,23 +1,22 @@
 <script lang="ts">
-    import {onMount, onDestroy} from 'svelte';
+    import {onDestroy, onMount} from 'svelte';
     import type {Module} from '../../../../../integration/types';
     import {getModules} from '../../../../../integration/rest';
     import {listen} from '../../../../../integration/ws';
     import {getTextWidth} from '../../../../../integration/text_measurement';
     import {convertToSpacedString, spaceSeperatedNames} from '../../../../../theme/theme_config';
-    import {getPrefixAsync} from '../arraylist';
-    import {flip} from 'svelte/animate';
-    import {fly} from 'svelte/transition';
-
     import {
-        subscribeColors,
         arraylistGradient,
         destroyGradient,
+        getPrefixAsync,
+        subscribeColors,
         subscribeRenderSettings
     } from '../arraylist';
+    import {flip} from 'svelte/animate';
+    import {fly} from 'svelte/transition';
     import {expoOut} from "svelte/easing";
 
-    let enabledModules: Array<Module & { prefix: string;  width: number }> = [];
+    let enabledModules: Array<Module & { prefix: string; width: number }> = [];
     let intervalId: number;
     let unsubs: [() => void, () => void];
     let unsubRenderSettings: () => void;

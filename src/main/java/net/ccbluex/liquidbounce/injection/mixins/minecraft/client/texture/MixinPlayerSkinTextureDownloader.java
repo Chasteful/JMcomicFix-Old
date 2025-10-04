@@ -1,11 +1,11 @@
 package net.ccbluex.liquidbounce.injection.mixins.minecraft.client.texture;
 
+import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.PlayerSkinTextureDownloader;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
-import net.fabricmc.api.EnvType;
 import org.spongepowered.asm.mixin.Unique;
 
 @Environment(EnvType.CLIENT)

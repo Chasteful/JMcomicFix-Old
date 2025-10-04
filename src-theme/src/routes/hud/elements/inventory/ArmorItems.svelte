@@ -2,17 +2,17 @@
     import {listen} from "../../../../integration/ws";
     import type {
         ClientPlayerDataEvent,
-        PlayerInventory,
-        ClientPlayerInventoryEvent
+        ClientPlayerInventoryEvent,
+        PlayerInventory
     } from "../../../../integration/events";
-    import type {PlayerData, ItemStack} from "../../../../integration/types";
+    import type {ItemStack, PlayerData} from "../../../../integration/types";
     import {onMount} from "svelte";
-    import {getPlayerInventory, getPlayerData} from "../../../../integration/rest";
+    import {getPlayerData, getPlayerInventory} from "../../../../integration/rest";
     import {fly} from "svelte/transition";
     import {expoInOut} from "svelte/easing";
     import {armorDurabilityStore, totemCount} from '../island/Island';
     import {get} from 'svelte/store';
-    import ArmorItem from "../../common/ItemView/ArmorItem.svelte";
+    import ArmorItem from "./ArmorItem.svelte";
     import Line from "../../common/Trims/Line.svelte";
 
 

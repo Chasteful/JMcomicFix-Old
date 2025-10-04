@@ -6,33 +6,24 @@ import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.liquidbounce.render.GenericCustomColorMode
-import net.ccbluex.liquidbounce.render.GenericRainbowColorMode
-import net.ccbluex.liquidbounce.render.GenericStaticColorMode
-import net.ccbluex.liquidbounce.render.GenericSyncColorMode
+import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.ItemStackListRenderer.Companion.drawItemStackList
-import net.ccbluex.liquidbounce.render.drawCustomMesh
-import net.ccbluex.liquidbounce.render.drawSparkleTrail
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.getCameraBillboard
-import net.ccbluex.liquidbounce.render.renderEnvironmentForGUI
-import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
+import net.ccbluex.liquidbounce.render.utils.RenderUtils.getVector3fCameraBillboard
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
-import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
 import net.ccbluex.liquidbounce.utils.render.WireframePlayer
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfo
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfoRenderer
-import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.network.AbstractClientPlayerEntity
 import net.minecraft.client.network.OtherClientPlayerEntity
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import net.minecraft.entity.player.PlayerModelPart
 import net.minecraft.entity.projectile.thrown.EnderPearlEntity
 import net.minecraft.item.ItemStack
@@ -43,7 +34,7 @@ import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.Vec3d
 import java.util.*
 
-object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliases = arrayOf("PearlESP")) {
+object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliases = listOf("PearlESP")) {
 
     private val espMode = choices("EspMode", Model,
         arrayOf(Model, Wireframe, Marker)).apply {
@@ -75,6 +66,8 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
             var lastAddTick: Long = Long.MIN_VALUE
         }
         val pearlTrails = IdentityHashMap<EnderPearlEntity, Trail>()
+        private var pooledPosArray = FloatArray(0)  // xyz xyz ...
+        private var pooledTimeArray = LongArray(0)  // creation ticks per point
 
         sealed class TrajectoryMode(name: String) : Choice(name) {
             object Immediate : TrajectoryMode("Immediate") {
@@ -95,6 +88,10 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
                 is TrajectoryMode.Predict -> 5
             }
 
+        @Suppress("unused")
+        private val worldChangeHandler = handler<WorldChangeEvent> {
+           pearlTrails.clear()
+        }
 
         @Suppress("unused")
         private val tickHandler = handler<GameTickEvent> {
@@ -173,15 +170,37 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
             val (color1Base, color2Base) = colorMode.activeChoice.getColors(player)
 
             renderEnvironmentForWorld(matrixStack) {
-                val billboard = getCameraBillboard(this)
+                val billboard = getVector3fCameraBillboard()
 
-                val allPositions: Sequence<Pair<Vec3d, Long>> = pearlTrails.values.asSequence()
-                    .flatMap { it.positions.asSequence() }
 
+
+                var totalPoints = 0
+                for (trail in pearlTrails.values) {
+                    totalPoints += trail.positions.size
+                }
+                if (totalPoints == 0) return@renderEnvironmentForWorld
+
+
+                if (pooledPosArray.size < totalPoints * 3) pooledPosArray = FloatArray(totalPoints * 3)
+                if (pooledTimeArray.size < totalPoints) pooledTimeArray = LongArray(totalPoints)
+
+                var writeIndex = 0
+                for (trail in pearlTrails.values) {
+                    for ((pos, creationTick) in trail.positions) {
+                        val base = writeIndex * 3
+                        pooledPosArray[base    ] = pos.x.toFloat()
+                        pooledPosArray[base + 1] = pos.y.toFloat()
+                        pooledPosArray[base + 2] = pos.z.toFloat()
+                        pooledTimeArray[writeIndex] = creationTick
+                        writeIndex++
+                    }
+                }
                 if (pearlTrails.values.all { it.positions.isEmpty() }) return@renderEnvironmentForWorld
 
                 drawSparkleTrail(
-                    positions = allPositions.toList(),
+                    positions = pooledPosArray,
+                    creationTimes = pooledTimeArray,
+                    totalSize = totalPoints,
                     env = this,
                     size = size,
                     currentTime = currentTime,
@@ -194,6 +213,7 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
                     shrink = true,
                     fadeDuration = 0f,
                     shrinkDuration = shrinkDuration,
+                    distanceLimit = null,
                     cameraPos = billboard.pos,
                     right = billboard.right,
                     up = billboard.up,
@@ -211,11 +231,9 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
         }
     }
 
-
     init {
         tree(Trajectory)
     }
-
 
     @Suppress("unused")
     private val renderHandler = handler<OverlayRenderEvent> { event ->
@@ -236,13 +254,12 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
                     .scale(0.5f)
                     .rectBackground(0)
                     .rowLength(1)
-                    .drawStackOverlay(false)
+                    .itemStackRenderer(
+                        ItemStackListRenderer.SingleItemStackRenderer.nothing())
                     .draw()
             }
         }
     }
-
-
 
     abstract class RenderChoice(name: String) : Choice(name) {
         override val parent: ChoiceConfigurable<RenderChoice>
@@ -382,8 +399,7 @@ object ModulePearlPredict : ClientModule("PearlPredict", Category.RENDER, aliase
 
                         drawCustomMesh(
                             VertexFormat.DrawMode.QUADS,
-                            VertexFormats.POSITION_TEXTURE_COLOR,
-                            ShaderProgramKeys.POSITION_TEX_COLOR
+                            VertexInputType.PosTexColor,
                         ) { matrix ->
                             vertex(matrix, 0f, 0f, 0f).texture(0f, 1f).color(color.toARGB())
                             vertex(matrix, 1f, 0f, 0f).texture(1f, 1f).color(color.toARGB())

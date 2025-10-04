@@ -1,12 +1,11 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.murdermystery
 
-import net.ccbluex.liquidbounce.utils.item.isAxe
-import net.ccbluex.liquidbounce.utils.item.isHoe
-import net.ccbluex.liquidbounce.utils.item.isPickaxe
-import net.ccbluex.liquidbounce.utils.item.isShovel
-import net.ccbluex.liquidbounce.utils.item.isSword
+import net.ccbluex.liquidbounce.utils.item.*
 import net.minecraft.block.Blocks
-import net.minecraft.item.*
+import net.minecraft.item.BlockItem
+import net.minecraft.item.BoatItem
+import net.minecraft.item.ItemStack
+import net.minecraft.item.Items
 
 object MurderMysterySwordDetection {
     private val KNOWN_SWORD_ITEMS =

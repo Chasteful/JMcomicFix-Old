@@ -19,6 +19,7 @@
 package net.ccbluex.liquidbounce.features.module
 
 import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet
+import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.AutoConfig
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.types.VALUE_NAME_ORDER
@@ -33,6 +34,8 @@ import net.ccbluex.liquidbounce.features.module.modules.client.ModuleLiquidChat
 import net.ccbluex.liquidbounce.features.module.modules.client.ModuleRichPresence
 import net.ccbluex.liquidbounce.features.module.modules.client.ModuleTargets
 import net.ccbluex.liquidbounce.event.sequenceHandler
+import net.ccbluex.liquidbounce.event.tickUntil
+import net.ccbluex.liquidbounce.features.module.modules.client.*
 import net.ccbluex.liquidbounce.features.module.modules.combat.*
 import net.ccbluex.liquidbounce.features.module.modules.combat.aimbot.ModuleAutoBow
 import net.ccbluex.liquidbounce.features.module.modules.combat.autoarmor.ModuleAutoArmor
@@ -103,9 +106,6 @@ import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.input.InputBind
-import net.ccbluex.liquidbounce.utils.kotlin.mapArray
-import net.ccbluex.liquidbounce.features.module.modules.client.*
-import net.ccbluex.jmcomicfix.features.module.modules.render.*
 import net.ccbluex.liquidbounce.features.module.modules.misc.anticheat.ModuleAntiCheat
 import net.ccbluex.liquidbounce.features.module.modules.movement.parkour.ModuleParkour
 import net.ccbluex.liquidbounce.features.module.modules.player.ModuleAutoStuck
@@ -121,7 +121,7 @@ private val modules = ObjectRBTreeSet<ClientModule>(VALUE_NAME_ORDER)
 /**
  * A fairly simple module manager
  */
-object ModuleManager : EventListener, Iterable<ClientModule> by modules {
+object ModuleManager : EventListener, Collection<ClientModule> by modules {
 
     val modulesConfigurable = ConfigSystem.root("modules", modules)
 
@@ -180,7 +180,7 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
     private val handleWorldChange = sequenceHandler<WorldChangeEvent> { event ->
         // Delayed start handling
         if (event.world != null) {
-            waitUntil { inGame }
+            tickUntil { inGame }
             AutoConfig.withLoading {
                 for (module in modules) {
                     if (!module.enabled || module.calledSinceStartup) continue
@@ -244,7 +244,6 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleBacktrack,
             ModuleSwordBlock,
             ModuleAutoShoot,
-            ModuleAutoRod,
             ModuleKeepSprint,
             ModuleMaceKill,
             ModuleNoMissCooldown,
@@ -295,7 +294,9 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleTwerk,
             ModuleVomit,
             ModuleSpecSpoof,
+
             // Misc
+            ModuleGUICloser,
             ModuleAutoGG,
             ModuleBookBot,
             ModuleAntiBot,
@@ -328,6 +329,8 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleAutoEZ,
             ModuleClientTitle,
             ModuleAutoF5,
+            ModuleClickSound,
+            ModuleKeepTabList,
 
             // Movement
             ModuleAirJump,
@@ -358,6 +361,7 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleSpeed,
             ModuleSprint,
             ModuleStep,
+            ModuleStuck,
             ModuleReverseStep,
             ModuleStrafe,
             ModuleTerrainSpeed,
@@ -366,7 +370,6 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleSpider,
             ModuleTargetStrafe,
             ModuleAnchor,
-            ModuleStuck,
 
             // Player
             ModuleAntiVoid,
@@ -385,6 +388,7 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleFastExp,
             ModuleFastUse,
             ModuleInventoryCleaner,
+            ModuleNoBlockInteract,
             ModuleNoEntityInteract,
             ModuleNoFall,
             ModuleNoRotateSet,
@@ -502,7 +506,6 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
             ModuleRichPresence,
             ModulePacketQueue,
             ModuleTargets,
-            ModuleLiquidChat,
             ModuleCapes,
             ModuleTranslation,
             ModuleLiquidChat
@@ -516,17 +519,21 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
     }
 
     fun addModule(module: ClientModule) {
+        if (!modules.add(module)) {
+            error("Module '${module.name}' is already registered.")
+        }
         module.initConfigurable()
         module.onRegistration()
-        modules += module
     }
 
     fun removeModule(module: ClientModule) {
+        if (!modules.remove(module)) {
+            error("Module '${module.name}' is not registered.")
+        }
         if (module.running) {
             module.onDisabled()
         }
         module.unregister()
-        modules -= module
     }
 
     fun clear() {
@@ -538,11 +545,11 @@ object ModuleManager : EventListener, Iterable<ClientModule> by modules {
      */
     @JvmName("getCategories")
     @ScriptApiRequired
-    fun getCategories() = Category.entries.mapArray { it.choiceName }
+    fun getCategories() = Category.entries.mapToArray { it.choiceName }
 
     @JvmName("getModules")
     @ScriptApiRequired
-    fun getModules(): Iterable<ClientModule> = modules
+    fun getModules(): Collection<ClientModule> = modules
 
     @JvmName("getModuleByName")
     @ScriptApiRequired

@@ -6,6 +6,7 @@ import net.ccbluex.liquidbounce.event.EventState
 import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.PlayerNetworkMovementTickEvent
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.event.until
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.ModuleNoFall
 import net.minecraft.entity.attribute.EntityAttributes
@@ -64,7 +65,7 @@ internal object NoFallMatrix : Choice("Matrix-1.18+") {
             }
             true
         }
-        waitUntil {
+        tickUntil {
             if (player.isOnGround && lagConfirmed) {
                 player.jump()
                 shouldHandleFall = false

@@ -108,7 +108,7 @@ object ModuleNametags : ClientModule("Nametags", Category.RENDER) {
             val pos = nametagInfo.position!!
 
             // We want nametags that are closer to the player to be rendered above nametags that are further away.
-            val renderZ = index / nametagsCount * 1000.0F
+            val renderZ = 0.01f + index / nametagsCount * 1000.0F
 
             with(nametagRenderer) {
                 drawNametag(nametagInfo, pos.copy(z = renderZ))
@@ -121,8 +121,6 @@ object ModuleNametags : ClientModule("Nametags", Category.RENDER) {
      * add what should be rendered ([Nametag]). The nametags are sorted in order of rendering.
      */
     private fun collectAndSortNametagsToRender(list: MutableList<Nametag>) {
-        val nametagsToRender = mutableListOf<Nametag>()
-
         val maximumDistanceSquared = maximumDistance.sq()
 
         for (entity in RenderedEntities) {

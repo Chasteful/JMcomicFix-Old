@@ -25,6 +25,8 @@ import net.ccbluex.liquidbounce.event.events.TickPacketProcessEvent
 import net.ccbluex.liquidbounce.event.events.TransferOrigin
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.event.tickUntil
+import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura
 import net.ccbluex.liquidbounce.utils.client.handlePacket
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager
@@ -96,7 +98,7 @@ internal object VelocityLegit : VelocityMode("Jump") {
 
     @Suppress("unused")
     private val tickHandler = tickHandler {
-        waitUntil { delayPackets }
+        tickUntil { delayPackets }
         repeat(60) {
             waitTicks(1)
             if (!delayPackets) return@tickHandler

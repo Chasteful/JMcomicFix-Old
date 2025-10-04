@@ -109,8 +109,8 @@
     transition: box-shadow 0.1s ease;
     background: linear-gradient(
                     135deg,
-                    rgba(20, 20, 20, 0.6) 0%,
-                    rgba(color.adjust($base, $lightness: -5%), 0.5) 100%
+                    rgba(20, 20, 20, 0.4) 0%,
+                    rgba(color.adjust($base, $lightness: -5%), 0.4) 100%
     );
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28),
@@ -141,7 +141,7 @@
     .ripple {
       position: absolute;
       inset: 0;
-      background: rgba($key-color, 0.3);
+      background: rgba($key-color, 0.5);
       border-radius: 12px;
       z-index: 1;
       transform: scale(0);

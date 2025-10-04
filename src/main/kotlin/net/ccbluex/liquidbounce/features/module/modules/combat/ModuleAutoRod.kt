@@ -22,10 +22,12 @@ package net.ccbluex.liquidbounce.features.module.modules.combat
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.event.computedOn
+import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.tickConditional
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -81,7 +83,7 @@ object ModuleAutoRod : ClientModule("AutoRod", Category.COMBAT) {
     private val maxEnemiesNearby by int("MaxEnemiesNearby", 1, 0..10) // 0 = no limit
     private val minHealth by float("MinHealth", 10f, 1f..20f)
     private val minTargetHealth by float("MinTargetHealth", 4f, 1f..20f)
-    private val requiresKillAura by boolean("RequiresKillAura", false)
+    private val requiresKillAura by boolean("RequiresKillAura", true)
     private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
     private val ignores by multiEnumChoice<Ignore>("Ignore")
     private val holdingItemsForIgnore by items(
@@ -99,6 +101,7 @@ object ModuleAutoRod : ClientModule("AutoRod", Category.COMBAT) {
     private val targetRenderer = tree(WorldTargetRenderer(this))
 
     private val hitTimeout by int("HitTimeout", 30, 5..200, "ticks")
+    private val pullOnOutOfRange by boolean("PullOnOutOfRange", true)
     private val slotResetDelay by intRange("SlotResetDelay", 0..0, 0..20, "ticks")
     private val cooldown by intRange("Cooldown", 4..8, 1..50, "ticks")
 
@@ -142,10 +145,10 @@ object ModuleAutoRod : ClientModule("AutoRod", Category.COMBAT) {
             return@handler
         }
         val maxRangeSq = (range.endInclusive + currentScanExtraRange).sq()
-        val mixRangeSq = range.start.sq()
+        val minRangeSq = range.start.sq()
 
         val target = targetTracker.selectFirst { enemy ->
-            player.squaredDistanceTo(enemy) in mixRangeSq..maxRangeSq && player.canSee(enemy)
+            player.squaredDistanceTo(enemy) in minRangeSq..maxRangeSq && player.canSee(enemy)
                 && enemy.getActualHealth() > minTargetHealth
         } ?: return@handler
 
@@ -192,10 +195,14 @@ object ModuleAutoRod : ClientModule("AutoRod", Category.COMBAT) {
             currentScanExtraRange = scanExtraRange.random()
         }
 
-        // 3. timeout / hit entity / no movement
-        waitConditional(hitTimeout) {
+        val maxRangeSq = (range.endInclusive + currentScanExtraRange).sq()
+        val minRangeSq = range.start.sq()
+
+        // 3. timeout / hit entity / no movement / out of range
+        tickConditional(hitTimeout) {
             fishingBobberEntity?.hookedEntity != null ||
-                fishingBobberEntity?.movement == Vec3d.ZERO
+                fishingBobberEntity?.movement == Vec3d.ZERO ||
+                pullOnOutOfRange && player.squaredDistanceTo(target) !in minRangeSq..maxRangeSq
         }
 
         // 4. pull

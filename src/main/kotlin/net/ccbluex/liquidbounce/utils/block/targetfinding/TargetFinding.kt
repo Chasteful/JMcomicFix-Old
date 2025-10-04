@@ -19,6 +19,7 @@
 package net.ccbluex.liquidbounce.utils.block.targetfinding
 
 import net.ccbluex.liquidbounce.config.types.NamedChoice
+import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.techniques.normal.ScaffoldTellyFeature.isTellyBridging
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.block.canBeReplacedWith
@@ -29,6 +30,7 @@ import net.ccbluex.liquidbounce.utils.client.player
 import net.ccbluex.liquidbounce.utils.client.world
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.ccbluex.liquidbounce.utils.math.geometry.AlignedFace
+import net.ccbluex.liquidbounce.utils.math.plus
 import net.minecraft.block.BlockState
 import net.minecraft.block.ShapeContext
 import net.minecraft.block.SideShapeType
@@ -40,6 +42,8 @@ import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Direction
 import net.minecraft.util.math.Vec3d
 import net.minecraft.util.math.Vec3i
+
+private const val MAX_REACH_SQUARED : Double = 20.25
 
 enum class AimMode(override val choiceName: String) : NamedChoice {
     CENTER("Center"),
@@ -151,10 +155,16 @@ private fun findBestTargetPlanForTargetPosition(
 ): BlockTargetPlan? {
     val directions = Direction.entries
 
-    val options = directions.mapNotNull { direction ->
-        val targetPlan =
-            getTargetPlanForPositionAndDirection(posToInvestigate, direction, mode)
-                ?: return@mapNotNull null
+    val currentRotation = RotationManager.serverRotation
+    val playerEyePositionOnPlacement = targetFindingOptions.playerLocationOnPlacement.position.add(
+        0.0,
+        player.standingEyeHeight.toDouble(),
+        0.0
+    )
+
+    // First, try to find plans with valid aiming points within reach
+    val validPlans = directions.mapNotNull { direction ->
+        val targetPlan = getTargetPlanForPositionAndDirection(posToInvestigate, direction, mode) ?: return@mapNotNull null
 
         // Check if the target face is pointing away from the player
         if (!targetFindingOptions.faceHandlingOptions.considerFacingAwayFaces &&
@@ -163,20 +173,62 @@ private fun findBestTargetPlanForTargetPosition(
             return@mapNotNull null
         }
 
-        return@mapNotNull targetPlan
+        val currPos = targetPlan.blockPosToInteractWith
+        val currState = currPos.getState() ?: return@mapNotNull null
+
+        val shapeBBs = currState.getOutlineShape(world, currPos, ShapeContext.of(player)).boundingBoxes
+
+        // For this direction, find the best (min angle) aiming point across BBs that is within reach
+        var minAngleForDir = Double.MAX_VALUE
+        for (bb in shapeBBs) {
+            val face = bb.getFace(targetPlan.interactionDirection)
+            var searchFace = face
+
+            // Try to aim at the upper portion of the block which makes it easier to switch from full blocks to half blocks
+            if (searchFace.to.y >= 0.9) {
+                searchFace = searchFace.truncateY(0.6).requireNonEmpty() ?: face
+            }
+
+            val relativePoint = targetFindingOptions.faceHandlingOptions.facePositionFactory.producePositionOnFace(searchFace, currPos)
+                ?: continue
+
+            val absPoint = relativePoint + Vec3d.of(currPos)
+            val distSquared = playerEyePositionOnPlacement.squaredDistanceTo(absPoint)
+            if (distSquared > MAX_REACH_SQUARED) continue
+
+            val targetRotation = Rotation.lookingAt(point = absPoint, from = playerEyePositionOnPlacement)
+            val angle = currentRotation.angleTo(targetRotation).toDouble()
+
+            if (angle < minAngleForDir) {
+                minAngleForDir = angle
+            }
+        }
+
+        if (minAngleForDir == Double.MAX_VALUE) return@mapNotNull null // No valid point within reach for this dir
+
+        // Store the plan with its min angle
+        targetPlan to minAngleForDir
     }
 
-    val currentRotation = RotationManager.serverRotation
+    if (validPlans.isNotEmpty()) {
+        return validPlans.minByOrNull { it.second }?.first
+    }
 
-    val playerEyePositionOnPlacement = targetFindingOptions.playerLocationOnPlacement.position.add(
-        0.0,
-        player.standingEyeHeight.toDouble(),
-        0.0
-    )
+    // Fallback: original method without reach check, using centers
+    val fallbackOptions = directions.mapNotNull { direction ->
+        val targetPlan = getTargetPlanForPositionAndDirection(posToInvestigate, direction, mode) ?: return@mapNotNull null
 
-    return options.minByOrNull {
+        if (!targetFindingOptions.faceHandlingOptions.considerFacingAwayFaces &&
+            targetPlan.calculateAngleToPlayerEyeCosine(targetFindingOptions.playerLocationOnPlacement.position) < 0
+        ) {
+            return@mapNotNull null
+        }
+
+        targetPlan
+    }
+
+    return fallbackOptions.minByOrNull {
         val targetRotation = Rotation.lookingAt(point = it.targetPositionOnBlock, from = playerEyePositionOnPlacement)
-
         currentRotation.angleTo(targetRotation)
     }
 }
@@ -194,6 +246,10 @@ fun getTargetPlanForPositionAndDirection(
             val currPos = pos.add(direction.opposite.vector)
             val currState = currPos.getState() ?: return null
 
+            if ((player.jumping || isTellyBridging) && !currState.isSideSolid(
+                    world, currPos, direction, SideShapeType.CENTER)) {
+                return null
+            }
             if (currState.isReplaceable) {
                 return null
             }
@@ -217,12 +273,10 @@ fun findBestBlockPlacementTarget(pos: BlockPos, options: BlockPlacementTargetFin
         return null
     }
 
-    val comparator = Comparator<Vec3i> { a, b ->
+    val offsetsToInvestigate = options.offsetOptions.offsetsToInvestigate.sortedWith { a, b ->
         // Sort DESCENDING!
         options.offsetOptions.priorityComparator.compare(b.add(pos), a.add(pos))
     }
-
-    val offsetsToInvestigate = options.offsetOptions.offsetsToInvestigate.sortedWith(comparator)
 
     for (offset in offsetsToInvestigate) {
         val posToInvestigate = pos.add(offset)
@@ -306,7 +360,7 @@ private fun findTargetPointOnFace(
         )
     }.maxWithOrNull(
         Comparator.comparingDouble<PointOnFace> {
-            it.point.subtract(0.5, 0.5, 0.5,)
+            it.point.subtract(0.5, 0.5, 0.5)
                 .multiply(Vec3d.of(targetPlan.interactionDirection.vector))
                 .lengthSquared()
         }.thenComparingDouble { it.point.y }

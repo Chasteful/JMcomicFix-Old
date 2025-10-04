@@ -21,105 +21,139 @@
 package net.ccbluex.liquidbounce.features.module.modules.render
 
 import com.mojang.authlib.GameProfile
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.LiquidBounce
-import net.ccbluex.liquidbounce.api.core.withScope
+import net.ccbluex.liquidbounce.api.core.renderScope
 import net.ccbluex.liquidbounce.authlib.utils.generateOfflinePlayerUuid
 import net.ccbluex.liquidbounce.authlib.yggdrasil.GameProfileRepository
+import net.ccbluex.liquidbounce.config.types.NamedChoice
+import net.ccbluex.liquidbounce.config.types.nesting.Choice
+import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.utils.client.chat
+import net.ccbluex.liquidbounce.utils.client.inGame
+import net.ccbluex.liquidbounce.utils.client.logger
+import net.ccbluex.liquidbounce.utils.client.registerTexture
 import net.minecraft.client.network.PlayerListEntry
 import net.minecraft.client.texture.NativeImage
-import net.minecraft.client.texture.NativeImageBackedTexture
 import net.minecraft.client.util.SkinTextures
-import java.util.function.Supplier
-import java.io.FileInputStream
 import net.minecraft.util.Identifier
+import java.util.function.Supplier
 import kotlin.time.Duration.Companion.seconds
 
 object ModuleSkinChanger : ClientModule("SkinChanger", Category.RENDER) {
-    private val slim by boolean("Slim", true)
-    private val username = text("Username", "")
-        .apply(::tagBy)
-    private val nativeSkin by file("Native")
 
-    init {
-        withScope {
-            username.asStateFlow().debounce { 2.seconds }.collectLatest { username ->
-                while (mc.player == null) { delay(1.seconds) }
-                skinTextures = textureSupplier(username)
-            }
+    /**
+     * Changes the player model by forcefully modifying [PlayerEntity.getSkinTextures],
+     * as PlayerListEntry is unreliable on some servers.
+     */
+    private val allowMixinAbstractClientPlayerEntity by boolean("ForceOverride", false)
+
+    private val mode = choices("Mode", 0) {
+        arrayOf(Mode.Online, Mode.File)
+    }
+
+    private suspend fun waitUntilInGame() {
+        while (!inGame) {
+            delay(1.seconds)
         }
     }
 
-    @Volatile
-    var skinTextures: Supplier<SkinTextures>? = null
-        private set
-
-    private fun textureSupplier(username: String): Supplier<SkinTextures> {
-        if (username.isBlank()) return fileSkinSupplier()
-
-        val uuid = GameProfileRepository().fetchUuidByUsername(username)
-            ?: generateOfflinePlayerUuid(username)
-        val profile = mc.sessionService.fetchProfile(uuid, false)?.profile
-            ?: GameProfile(uuid, username)
-
-        val mojangSupplier = PlayerListEntry.texturesSupplier(profile)
-        return try {
-            mojangSupplier.get()
-            mojangSupplier
-        } catch (_: Exception) {
-            fileSkinSupplier()
-        }
-    }
-
-    private var cachedSkinId: Identifier? = null
-    private var cachedSkinTex: NativeImageBackedTexture? = null
-    private var cachedLastModified: Long = -1
-
-    private fun fileSkinSupplier(): Supplier<SkinTextures> = Supplier {
-        val file = nativeSkin.absoluteFile.takeIf { it.exists() && it.isFile && it.canRead() }
-
-        val id: Identifier
-        if (file != null) {
-            val lastModified = file.lastModified()
-            if (cachedSkinId == null || lastModified != cachedLastModified) {
-                cachedSkinTex?.close()
-                FileInputStream(file).use { fis ->
-                    val image = NativeImage.read(fis)
-                    cachedSkinTex = NativeImageBackedTexture(image)
-                    cachedSkinId = Identifier.of("liquidbounce", "skin-file")
-                    mc.textureManager.registerTexture(cachedSkinId!!, cachedSkinTex!!)
-                    cachedLastModified = lastModified
+    private inline fun <T> Flow<T>.debounceUntilInGame(crossinline action: suspend (T) -> Unit) {
+        renderScope.launch {
+            this@debounceUntilInGame.debounce { 2.seconds }.collectLatest {
+                waitUntilInGame()
+                try {
+                    action(it)
+                } catch (e: Exception) {
+                    if (this@ModuleSkinChanger.running) {
+                        chat("Unable to load custom skin because: ${e.message} (${e.javaClass.simpleName})")
+                    }
+                    logger.error("Unable to load custom skin", e)
                 }
             }
-            id = cachedSkinId!!
-        } else {
-            if (cachedSkinId == null) {
-                val image = NativeImage.read(
-                    LiquidBounce.javaClass.getResourceAsStream("/resources/liquidbounce/image/skin/NachoNeko.png")!!
-                )
-                cachedSkinTex = NativeImageBackedTexture(image)
-                cachedSkinId = Identifier.of("liquidbounce", "skin-default")
-                mc.textureManager.registerTexture(cachedSkinId!!, cachedSkinTex!!)
-            }
-            id = cachedSkinId!!
         }
-
-        SkinTextures(
-            id,
-            "",
-            null,
-            null,
-            if (slim) SkinTextures.Model.SLIM else null,
-            true
-        )
     }
 
+    private sealed class Mode(name: String) : Choice(name) {
+        final override val parent: ChoiceConfigurable<*>
+            get() = mode
+
+        abstract val skinTextures: Supplier<SkinTextures>?
+
+        object Online : Mode("Online") {
+            private val username = text("Username", "LiquidBounce")
+
+            init {
+                username.asStateFlow().debounceUntilInGame { username ->
+                    skinTextures = textureSupplier(username)
+                }
+            }
+
+            override var skinTextures: Supplier<SkinTextures>? = null
+
+            private suspend fun textureSupplier(username: String): Supplier<SkinTextures> {
+                val profile = withContext(Dispatchers.IO) {
+                    val uuid = GameProfileRepository().fetchUuidByUsername(username)
+                        ?: generateOfflinePlayerUuid(username)
+                    mc.sessionService.fetchProfile(uuid, false)?.profile
+                        ?: GameProfile(uuid, username)
+                }
+
+                return PlayerListEntry.texturesSupplier(profile)
+            }
+        }
+
+        object File : Mode("File") {
+            private val image = file("Image")
+
+            private val model by enumChoice("Model", ModelChoice.WIDE)
+
+            private enum class ModelChoice(
+                override val choiceName: String,
+                val model: SkinTextures.Model,
+            ) : NamedChoice {
+                SLIM("Slim", SkinTextures.Model.SLIM),
+                WIDE("Default", SkinTextures.Model.WIDE),
+            }
+
+            override var skinTextures: Supplier<SkinTextures>? = null
+
+            init {
+                image.asStateFlow().filter { it.isFile }.debounceUntilInGame { file ->
+                    val id = Identifier.of(
+                        LiquidBounce.CLIENT_NAME.lowercase(),
+                        "skin-changer-from-file"
+                    )
+
+                    // New texture will replace the old one
+                    val nativeImage = withContext(Dispatchers.IO) {
+                        NativeImage.read(file.inputStream())
+                    }
+
+                    nativeImage.registerTexture(id)
+
+                    skinTextures = Supplier {
+                        SkinTextures(id, null, null, null, model.model, false)
+                    }
+                }
+            }
+        }
+    }
+
+    val skinTextures: Supplier<SkinTextures>? get() = mode.activeChoice.skinTextures
 
     @JvmStatic
-    fun shouldApplyChanges(): Boolean = running
+    fun shouldApplyChanges(): Boolean =
+        running && allowMixinAbstractClientPlayerEntity
+
 }

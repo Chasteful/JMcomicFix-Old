@@ -96,7 +96,7 @@ val availableMouseKeys: Set<String>
         .map { key -> reduceInputName(key.translationKey) }
         .toSet()
 
-val availableInputKeys: Set<String> = availableKeyboardKeys + availableMouseKeys
+val availableInputKeys: Set<String> = availableKeyboardKeys + availableMouseKeys + "none"
 
 fun ActionResult.shouldSwingHand() = this is ActionResult.Success && this.swingSource == ActionResult.SwingSource.CLIENT
 

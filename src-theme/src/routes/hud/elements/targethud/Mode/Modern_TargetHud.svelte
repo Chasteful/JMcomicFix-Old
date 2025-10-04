@@ -5,12 +5,11 @@
     import {calcArmorValue} from "../../../../../util/Client/calcArmorValue"
     import {armorValue, targetId} from '../../island/Island';
     import {REST_BASE} from "../../../../../integration/host";
-    import {popOut, popIn} from "../../../../../util/animate_utils";
+    import {popIn, popOut} from "../../../../../util/animate_utils";
     import {removeColorCodes} from "../../../../../util/color_utils";
-    import {onMount, onDestroy} from "svelte";
+    import {onDestroy, onMount} from "svelte";
     import {calcArmorColor, detectTeamColor, type TeamColor} from "../../../../../util/Client/calcArmorColor";
-    import ArmorStatus from "../../../common/ItemView/ArmorStatus.svelte";
-    import AvatarView from "../../../common/PlayerView/AvatarView.svelte";
+    import AvatarView from "../../../common/Canvas/AvatarView.svelte";
     import {primaryColor, secondaryColor} from '../../../../../util/Theme/ThemeManager';
     import {get} from "svelte/store";
     import {visible} from "../TargetHud";
@@ -429,16 +428,10 @@
   .avatar {
     position: relative;
     grid-area: avatar;
-    width: 50px;
-    height: 50px;
 
     .avatar-inner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: scale(5.5);
-      transform-origin: center center;
-      filter: drop-shadow(0 0 4px rgba($base, 0.5));
+      transform: scale(0.8);
+      filter: drop-shadow(0 4 12px rgba($base, 0.85));
     }
 
     &.shrink .avatar-inner {
@@ -587,16 +580,16 @@
 
   @keyframes hitScale {
     0% {
-      transform: scale(5.5);
+      transform: scale(0.8);
     }
     50% {
-      transform: scale(6);
+      transform: scale(0.875);
     }
     80% {
-      transform: scale(5.3);
+      transform: scale(0.75);
     }
     100% {
-      transform: scale(5.5);
+      transform: scale(0.8);
     }
   }
 

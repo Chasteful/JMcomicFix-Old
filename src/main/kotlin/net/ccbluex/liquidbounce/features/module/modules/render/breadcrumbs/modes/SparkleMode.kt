@@ -10,8 +10,8 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debug
 import net.ccbluex.liquidbounce.features.module.modules.render.breadcrumbs.BreadcrumbsMode
 import net.ccbluex.liquidbounce.features.module.modules.render.breadcrumbs.ModuleBreadcrumbs.colorMode
 import net.ccbluex.liquidbounce.render.drawSparkleTrail
-import net.ccbluex.liquidbounce.render.getCameraBillboard
 import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
+import net.ccbluex.liquidbounce.render.utils.RenderUtils.getVector3fCameraBillboard
 import net.minecraft.entity.Entity
 import net.minecraft.util.math.Vec3d
 import java.util.*
@@ -43,6 +43,8 @@ object SparkleMode : BreadcrumbsMode("Sparkle") {
 
     private val trails = IdentityHashMap<Entity, Trail>()
     private val lastPositions = IdentityHashMap<Entity, DoubleArray>()
+    private var pooledPosArray = FloatArray(0)
+    private var pooledTimeArray = LongArray(0)
 
     private class Trail {
         val positions = ArrayDeque<Sparkle>()
@@ -96,32 +98,53 @@ object SparkleMode : BreadcrumbsMode("Sparkle") {
         }
 
         renderEnvironmentForWorld(matrixStack) {
-            val billboard = getCameraBillboard(this)
+            val billboard = getVector3fCameraBillboard()
+
+            var totalPoints = 0
+            trails.forEach { (entity, trail) ->
+                if (!onlyOwn || entity === player) totalPoints += trail.positions.size
+            }
+            if (totalPoints == 0) return@renderEnvironmentForWorld
+
+            if (pooledPosArray.size < totalPoints * 3) pooledPosArray = FloatArray(totalPoints * 3)
+            if (pooledTimeArray.size < totalPoints) pooledTimeArray = LongArray(totalPoints)
+
+            var writeIndex = 0
             trails.forEach { (entity, trail) ->
                 if (onlyOwn && entity !== player) return@forEach
-                drawSparkleTrail(
-                    positions = trail.positions.map { it.pos to it.creationTime },
-                    env = this,
-                    size = size,
-                    currentTime = currentTime,
-                    alive = alive,
-                    gradientSpeed = gradientSpeed,
-                    primaryColor = color1Base,
-                    secondaryColor = color2Base,
-                    darkImprint = darkImprint,
-                    fade = Animation.enabled && Animation.fade,
-                    shrink = Animation.enabled && Animation.shrink,
-                    fadeDuration = Animation.fadeDuration,
-                    shrinkDuration = Animation.shrinkDuration,
-                    distanceLimit = distanceLimit,
-                    cameraPos = billboard.pos,
-                    right = billboard.right,
-                    up = billboard.up,
-                    time = billboard.time
-                )
+                for (sparkle in trail.positions) {
+                    val base = writeIndex * 3
+                    pooledPosArray[base    ] = sparkle.pos.x.toFloat()
+                    pooledPosArray[base + 1] = sparkle.pos.y.toFloat()
+                    pooledPosArray[base + 2] = sparkle.pos.z.toFloat()
+                    pooledTimeArray[writeIndex] = sparkle.creationTime
+                    writeIndex++
+                }
             }
-        }
 
+            drawSparkleTrail(
+                positions = pooledPosArray,
+                creationTimes = pooledTimeArray,
+                totalSize = totalPoints,
+                env = this,
+                size = size,
+                currentTime = currentTime,
+                alive = alive,
+                gradientSpeed = gradientSpeed,
+                primaryColor = color1Base,
+                secondaryColor = color2Base,
+                darkImprint = darkImprint,
+                fade = Animation.enabled && Animation.fade,
+                shrink = Animation.enabled && Animation.shrink,
+                fadeDuration = Animation.fadeDuration,
+                shrinkDuration = Animation.shrinkDuration,
+                distanceLimit = distanceLimit,
+                cameraPos = billboard.pos,
+                right = billboard.right,
+                up = billboard.up,
+                time = billboard.time
+            )
+        }
     }
 
     override fun enable() {

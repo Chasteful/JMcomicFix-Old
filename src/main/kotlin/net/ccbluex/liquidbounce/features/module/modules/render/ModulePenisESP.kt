@@ -9,18 +9,13 @@ import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.liquidbounce.render.WorldRenderEnvironment
-import net.ccbluex.liquidbounce.render.drawCustomMesh
+import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
-import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.ccbluex.liquidbounce.utils.entity.RenderedEntities
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
-import net.minecraft.client.gl.ShaderProgramKeys
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
 import net.minecraft.client.util.math.MatrixStack
 import net.minecraft.entity.LivingEntity
 import net.minecraft.particle.ParticleTypes
@@ -248,8 +243,7 @@ object ModulePenisESP : ClientModule("PenisESP", Category.RENDER) {
 
         drawCustomMesh(
             VertexFormat.DrawMode.QUADS,
-            VertexFormats.POSITION_TEXTURE_COLOR,
-            ShaderProgramKeys.POSITION_TEX_COLOR
+             VertexInputType.PosTexColor,
         ) { vertex ->
             for (i in 0 until segmentCount) {
                 val angle0 = (2 * Math.PI * i / segmentCount).toFloat()
@@ -282,8 +276,7 @@ object ModulePenisESP : ClientModule("PenisESP", Category.RENDER) {
 
         drawCustomMesh(
             VertexFormat.DrawMode.TRIANGLE_STRIP,
-            VertexFormats.POSITION_TEXTURE_COLOR,
-            ShaderProgramKeys.POSITION_TEX_COLOR
+             VertexInputType.PosTexColor,
         ) { vertex ->
             for (i in 0 until segmentCount) {
                 val theta0 = Math.PI * i / segmentCount

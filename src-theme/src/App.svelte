@@ -20,13 +20,14 @@
     import Inventory from "./routes/menu/inventory/Inventory.svelte";
     import ConfigManager from "./routes/clickgui/ConfigManager.svelte";
     import None from "./routes/menu/none/None.svelte";
+    import GameManager from "./routes/menu/game/game/GameManager.svelte";
 
     const routes = {
         "/loginmenu": LoginMenu,
         "/lockscreen": LockScreen,
         "/clickgui": ClickGui,
         "/hud": Hud,
-        "/layouteditor": Hud,
+        "/layouteditor": GameManager,
         "/inventory": Inventory,
         "/game_menu": ConfigManager,
         "/chest": SpareModule,

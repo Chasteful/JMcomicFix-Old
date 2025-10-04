@@ -1,18 +1,20 @@
 package net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.items
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
+import net.ccbluex.fastutil.asIntList
+import net.ccbluex.fastutil.mapToIntArray
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.*
 import net.ccbluex.liquidbounce.utils.inventory.ItemSlot
 import net.ccbluex.liquidbounce.utils.item.getPotionEffects
 import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
 import net.ccbluex.liquidbounce.utils.sorting.Tier
 import net.minecraft.entity.effect.StatusEffect
+import net.minecraft.entity.effect.StatusEffectInstance
 import net.minecraft.entity.effect.StatusEffects
 import net.minecraft.item.LingeringPotionItem
 import net.minecraft.item.PotionItem
 import net.minecraft.item.SplashPotionItem
 import net.minecraft.client.MinecraftClient
-import net.minecraft.entity.effect.StatusEffectInstance
 import java.util.*
 
 class PotionItemFacet(itemSlot: ItemSlot) : ItemFacet(itemSlot) {
@@ -107,7 +109,13 @@ class PotionItemFacet(itemSlot: ItemSlot) : ItemFacet(itemSlot) {
         /**
          * Prefers higher duration of higher tiers for non-redundant effects.
          */
-
+        private object PreferHigherDurationPotions : Comparator<PotionItemFacet> {
+            override fun compare(o1: PotionItemFacet, o2: PotionItemFacet): Int = compareValuesBy(o1, o2) { o ->
+                o.itemStack.getPotionEffects()
+                    .sortedByDescending { it.effectType.value().tier }
+                    .mapToIntArray { it.duration }.asIntList()
+            }
+        }
 
         private val StatusEffect.tier: Tier
             get() = GOOD_STATUS_EFFECT_TIER_LIST[this] ?: Tier.F

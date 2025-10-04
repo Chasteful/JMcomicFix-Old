@@ -18,13 +18,9 @@ import net.minecraft.entity.effect.StatusEffects
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.Heightmap
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.floor
-import kotlin.math.sin
-import kotlin.math.sqrt
+import kotlin.math.*
 
-object ModuleSuicide : ClientModule("Suicide", Category.FUN, aliases = arrayOf("AutoVoid"),disableOnQuit = true) {
+object ModuleSuicide : ClientModule("Suicide", Category.FUN, aliases = listOf("AutoVoid"),disableOnQuit = true) {
 
     enum class Algorithm(override val choiceName: String) : NamedChoice {
         AStar("AStar"),

@@ -9,18 +9,26 @@
     import GradientAnimatedText from "../../common/FontRenderer/GradientAnimatedText.svelte";
     import Rise_Arraylist from "./mode/Rise_Arraylist.svelte";
     import Simple_Arraylist from "./mode/Simple_Arraylist.svelte";
+    import {ArraylistRenderSettings} from "./arraylist";
 
     const modes: Record<string, any> = {
         Simple: Simple_Arraylist,
         Rise: Rise_Arraylist,
     }
+
     export let settings: { [name: string]: any };
-    $: ModeComponent = modes[settings?.mode] ?? Rise_Arraylist;
     let scoreboard: Scoreboard | null = null;
+
+    $: ArraylistRenderSettings.set(new Set(settings?.prefix));
+    $: ModeComponent = modes[settings?.mode] ?? Rise_Arraylist;
+
+
     listen("clientPlayerData", (e: ClientPlayerDataEvent) => {
         const playerData: PlayerData = e.playerData;
         scoreboard = playerData.scoreboard;
     });
+
+
 </script>
 
 <div class="combined-container">

@@ -1,12 +1,12 @@
 <script lang="ts">
     import type {ItemStack} from "../../../../integration/types";
     import {listen} from "../../../../integration/ws";
-    import type {PlayerInventory, ClientPlayerInventoryEvent} from "../../../../integration/events";
-    import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
+    import type {ClientPlayerInventoryEvent, PlayerInventory} from "../../../../integration/events";
     import {onMount} from "svelte";
     import {getPlayerInventory} from "../../../../integration/rest";
     import {fly} from "svelte/transition";
     import {expoInOut} from "svelte/easing";
+    import ItemStackDisplay from "../../common/ItemView/ItemStackDisplay.svelte";
 
     let stacks: ItemStack[] = [];
 
@@ -26,7 +26,12 @@
 
 <div class="container hud-container" transition:fly|global={{duration: 500, y: -50, easing: expoInOut}}>
     {#each stacks as stack (stack)}
-        <ItemStackView {stack}/>
+        <ItemStackDisplay
+                {stack}
+                dyedMode={true}
+                showDurability={stack.damage > 0}
+                durabilityColorMode={true}
+        />
     {/each}
 </div>
 <style lang="scss">

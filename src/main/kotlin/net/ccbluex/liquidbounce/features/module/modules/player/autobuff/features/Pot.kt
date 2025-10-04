@@ -21,7 +21,8 @@
 
 package net.ccbluex.liquidbounce.features.module.modules.player.autobuff.features
 
-import net.ccbluex.liquidbounce.event.Sequence
+import net.ccbluex.liquidbounce.event.waitTicks
+import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff.Rotations.RotationTimingMode.*
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.StatusEffectBasedBuff
@@ -86,7 +87,7 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
 
     private val allowLingering by boolean("AllowLingering", false)
 
-    override suspend fun Sequence.execute(slot: HotbarItemSlot) {
+    override suspend fun execute(slot: HotbarItemSlot) {
         // TODO: Use movement prediction to splash against walls and away from the player
         //   See https://github.com/CCBlueX/LiquidBounce/issues/2051
         var rotation = Rotation(player.yaw, (85f..90f).random())
@@ -100,12 +101,13 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                     priority = Priority.IMPORTANT_FOR_PLAYER_LIFE
                 )
 
-                waitUntil {
+                tickUntil {
                     (currentRotation ?: player.rotation).pitch > 85
                 }
 
                 rotation = rotation.normalize()
             }
+
             ON_TICK -> {
                 rotation = rotation.normalize()
                 network.sendPacket(MovePacketType.FULL.generatePacket().apply {
@@ -113,6 +115,7 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                     pitch = rotation.pitch
                 })
             }
+
             ON_USE -> {
                 rotation = rotation.normalize()
             }
@@ -131,7 +134,8 @@ internal object Pot : StatusEffectBasedBuff("Pot") {
                     pitch = currentRotation?.pitch ?: player.pitch
                 })
             }
-            else -> { }
+
+            else -> {}
         }
 
         // Wait at least 1 tick to make sure, we do not continue with something else too early

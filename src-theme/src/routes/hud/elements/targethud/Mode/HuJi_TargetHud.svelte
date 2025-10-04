@@ -2,10 +2,9 @@
     import {listen} from "../../../../../integration/ws.js";
     import type {PlayerData} from "../../../../../integration/types";
     import {REST_BASE} from "../../../../../integration/host";
-    import {calcArmorColor} from "../../../../../util/Client/calcArmorColor";
-    import {detectTeamColor, type TeamColor} from "../../../../../util/Client/calcArmorColor";
+    import {calcArmorColor, detectTeamColor, type TeamColor} from "../../../../../util/Client/calcArmorColor";
     import type {TargetChangeEvent} from "../../../../../integration/events.js";
-    import {popOut, popIn} from "../../../../../util/animate_utils";
+    import {popIn, popOut} from "../../../../../util/animate_utils";
     import PlayerView from "../../../common/PlayerView/PlayerView.svelte";
     import {visible} from "../TargetHud";
 

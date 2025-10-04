@@ -25,7 +25,6 @@ package net.ccbluex.liquidbounce.utils.inventory
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.Configurable
-import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.client.*
@@ -34,16 +33,18 @@ import net.ccbluex.liquidbounce.utils.kotlin.emptyEnumSet
 import net.ccbluex.liquidbounce.utils.network.OpenInventorySilentlyPacket
 import net.ccbluex.liquidbounce.utils.network.sendPacket
 import net.minecraft.block.Block
-import net.minecraft.block.Blocks
 import net.minecraft.client.gui.screen.ingame.HandledScreen
 import net.minecraft.component.type.DyedColorComponent
 import net.minecraft.item.ItemStack
 import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket
 import net.minecraft.registry.Registries
 import net.minecraft.registry.tag.ItemTags
+import net.minecraft.screen.ScreenHandler
+import net.minecraft.screen.ScreenHandlerType
 import net.minecraft.util.ActionResult
 import net.minecraft.util.Hand
 import java.util.*
+import java.util.function.Predicate
 
 /**
  * Constraints for inventory actions.
@@ -60,21 +61,19 @@ open class InventoryConstraints : Configurable("Constraints") {
 
     internal val requirements by multiEnumChoice<InventoryRequirements>("Requires",
         default = emptyEnumSet(),
-        choices = EnumSet.of(
-            InventoryRequirements.NO_MOVEMENT,
-            InventoryRequirements.NO_ROTATION
-        ).also {
-            if (this is PlayerInventoryConstraints) {
-                it.add(InventoryRequirements.OPEN_INVENTORY)
-            }
-        }
+        choices = requirementChoices(),
+    )
+
+    protected open fun requirementChoices(): EnumSet<InventoryRequirements> = EnumSet.of(
+        InventoryRequirements.NO_MOVEMENT,
+        InventoryRequirements.NO_ROTATION
     )
 
     /**
      * Whether the constraints are met, this will be checked before any inventory actions are performed.
      */
     fun passesRequirements(action: InventoryAction) =
-        requirements.all { it.testRequirement(action) }
+        requirements.all { it.test(action) }
 
 }
 
@@ -84,19 +83,18 @@ open class InventoryConstraints : Configurable("Constraints") {
  */
 class PlayerInventoryConstraints : InventoryConstraints() {
     val requiresOpenInventory get() = InventoryRequirements.OPEN_INVENTORY in requirements
+
+    override fun requirementChoices(): EnumSet<InventoryRequirements> {
+        return super.requirementChoices().also { it += InventoryRequirements.OPEN_INVENTORY }
+    }
 }
 
-internal enum class InventoryRequirements(
+enum class InventoryRequirements(
     override val choiceName: String,
-    val testRequirement: (action: InventoryAction) -> Boolean
-) : NamedChoice {
-    NO_MOVEMENT("NoMovement", { _ ->
-        player.input.movementForward == 0.0f && player.input.movementSideways == 0.0f && !player.jumping
-    }),
+) : NamedChoice, Predicate<InventoryAction> {
+    NO_MOVEMENT("NoMovement"),
 
-    NO_ROTATION("NoRotation", { _ ->
-        RotationManager.rotationMatchesPreviousRotation()
-    }),
+    NO_ROTATION("NoRotation"),
 
     /**
      * When this option is not enabled, the inventory will be opened silently
@@ -112,9 +110,13 @@ internal enum class InventoryRequirements(
      * Sad.
      * :(
      */
-    OPEN_INVENTORY("InventoryOpen", { action ->
-        !action.requiresPlayerInventoryOpen() || InventoryManager.isInventoryOpen
-    })
+    OPEN_INVENTORY("InventoryOpen");
+
+    override fun test(action: InventoryAction): Boolean = when (this) {
+        NO_MOVEMENT -> player.input.movementForward == 0.0f && player.input.movementSideways == 0.0f && !player.jumping
+        NO_ROTATION -> RotationManager.rotationMatchesPreviousRotation()
+        OPEN_INVENTORY -> !action.requiresPlayerInventoryOpen() || InventoryManager.isInventoryOpen
+    }
 }
 
 fun hasInventorySpace() = player.inventory.main.any { it.isEmpty }
@@ -215,34 +217,13 @@ fun getArmorColor() = Slots.Armor.firstNotNullOfOrNull { slot ->
  *
  * @see [net.minecraft.client.render.entity.feature.ArmorFeatureRenderer.renderArmor]
  */
-@Suppress("MagicNumber")
 fun ItemStack.getArmorColor(): Int? {
     return if (isIn(ItemTags.DYEABLE)) {
-        DyedColorComponent.getColor(this, -6265536) // #FFA06540
+        DyedColorComponent.getColor(this, DyedColorComponent.DEFAULT_COLOR) // #FFA06540
     } else {
         null
     }
 }
 
-/**
- * A list of blocks which may not be placed (apart from the usual checks), so inv cleaner and scaffold
- * won't count them as blocks
- */
-val DISALLOWED_BLOCKS_TO_PLACE = hashSetOf(
-    Blocks.TNT,
-    Blocks.COBWEB,
-    Blocks.NETHER_PORTAL,
-)
-
-/**
- * @see [ScaffoldBlockItemSelection.isBlockUnfavourable]
- */
-val UNFAVORABLE_BLOCKS_TO_PLACE = hashSetOf(
-    Blocks.CRAFTING_TABLE,
-    Blocks.JIGSAW,
-    Blocks.SMITHING_TABLE,
-    Blocks.FLETCHING_TABLE,
-    Blocks.ENCHANTING_TABLE,
-    Blocks.CAULDRON,
-    Blocks.MAGMA_BLOCK,
-)
+val ScreenHandler.typeOrNull: ScreenHandlerType<*>?
+    get() = runCatching { type }.getOrNull()

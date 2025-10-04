@@ -22,9 +22,10 @@ import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
-import net.ccbluex.liquidbounce.event.Sequence
+import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.once
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -78,8 +79,7 @@ object ModuleAntiAFK : ClientModule("AntiAFK", Category.PLAYER) {
 
         var randomDirection = DirectionalInput.NONE
 
-        private val interactions by multiEnumChoice(
-            "Interaction",
+        private val interactions by multiEnumChoice("Interaction",
             Interaction.YAW,
             Interaction.PITCH,
             Interaction.SWING_HAND,
@@ -90,7 +90,7 @@ object ModuleAntiAFK : ClientModule("AntiAFK", Category.PLAYER) {
         @Suppress("unused")
         val repeatable = tickHandler {
             interactions.randomOrNull()?.let {
-                it.perform(this@tickHandler)
+                it.perform()
                 waitTicks(delay.random())
             }
         }
@@ -103,10 +103,10 @@ object ModuleAntiAFK : ClientModule("AntiAFK", Category.PLAYER) {
         @Suppress("unused", "MagicNumber")
         private enum class Interaction(
             override val choiceName: String,
-            val perform: suspend Sequence.() -> Unit,
-        ) : NamedChoice {
+            val perform: suspend () -> Unit,
+        ): NamedChoice {
             JUMP("Jump", {
-                waitNext<MovementInputEvent> { event ->
+                once<MovementInputEvent> { event ->
                     event.jump = true
                 }
             }),
@@ -176,7 +176,7 @@ object ModuleAntiAFK : ClientModule("AntiAFK", Category.PLAYER) {
             }
 
             if (jump && player.isOnGround) {
-                waitNext<MovementInputEvent> { event ->
+                once<MovementInputEvent> { event ->
                     event.jump = true
                 }
             }

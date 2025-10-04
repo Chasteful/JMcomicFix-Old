@@ -3,6 +3,7 @@
     import RiseHotBar from "./mode/Rise_HotBar.svelte";
     import SimpleHotBar from "./mode/Simple_HotBar.svelte";
     import Hanabi_HotBar from "./mode/Hanabi_HotBar.svelte";
+    import {scaleFactor} from "./HotBar";
 
     export let settings: { [name: string]: any };
 
@@ -16,6 +17,7 @@
     let ModeComponent: any;
 
     $: ModeComponent = modes[settings?.mode] ?? RiseHotBar;
+    $: $scaleFactor = settings?.scale
 </script>
 
 <svelte:component this={ModeComponent} {settings}/>

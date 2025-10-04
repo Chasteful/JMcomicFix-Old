@@ -19,11 +19,7 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.nametags
 
 import net.ccbluex.liquidbounce.features.module.modules.misc.antibot.ModuleAntiBot
-import net.ccbluex.liquidbounce.utils.client.asText
-import net.ccbluex.liquidbounce.utils.client.bold
-import net.ccbluex.liquidbounce.utils.client.player
-import net.ccbluex.liquidbounce.utils.client.regular
-import net.ccbluex.liquidbounce.utils.client.withColor
+import net.ccbluex.liquidbounce.utils.client.*
 import net.ccbluex.liquidbounce.utils.combat.EntityTaggingManager
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
 import net.ccbluex.liquidbounce.utils.entity.ping
@@ -79,7 +75,7 @@ class NametagTextFormatter(private val entity: Entity) {
                 isBot -> Formatting.DARK_AQUA.toTextColor()
                 entity.isInvisible -> Formatting.GOLD.toTextColor()
                 entity.isSneaking -> Formatting.DARK_RED.toTextColor()
-                tagColor != null -> TextColor.fromRgb(tagColor.toARGB())
+                tagColor != null -> tagColor.toTextColor()
                 else -> null
             }
         }

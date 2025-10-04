@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleLogoffSpot;
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleTrueSight;
 import net.ccbluex.liquidbounce.interfaces.EntityRenderStateAddition;
 import net.ccbluex.liquidbounce.render.engine.type.Color4b;
+import net.ccbluex.liquidbounce.utils.combat.CombatExtensionsKt;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.entity.feature.FeatureRenderer;
@@ -49,15 +50,15 @@ public abstract class MixinFeatureRenderer {
     private static void injectChamsFeatureColor(EntityModel instance, MatrixStack matrixStack, VertexConsumer vertexConsumer, int light, int overlay, int color, Operation<Void> original, @Local(argsOnly = true) LivingEntityRenderState state) {
         var trueSightModule = ModuleTrueSight.INSTANCE;
         var chams = ModuleChams.INSTANCE;
-
+        var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
         if (ModuleTrueSight.canRenderEntities(state)) {
             color = trueSightModule.getRunning() && trueSightModule.getEntities()
                     ? trueSightModule.getEntityFeatureLayerColor().toARGB()
                     : ESP_TRUE_SIGHT_REQUIREMENT_COLOR;
         } else if (ModuleLogoffSpot.INSTANCE.isLogoffEntity(state)) {
             color = ESP_TRUE_SIGHT_REQUIREMENT_COLOR;
-        } else if (chams.getRunning()) {
-            var entity = ((EntityRenderStateAddition) state).liquid_bounce$getEntity();
+        } else if (chams.getRunning() && CombatExtensionsKt.shouldBeShown(entity)) {
+
             if (!entity.isInvisible()) {
                 color = chams.getColor((LivingEntity) entity).toARGB();
             }

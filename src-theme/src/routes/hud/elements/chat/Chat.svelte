@@ -1,8 +1,8 @@
 <script lang="ts">
-    import {onMount, afterUpdate} from 'svelte';
+    import {afterUpdate, onMount} from 'svelte';
     import {listen} from '../../../../integration/ws';
     import TextComponent from '../../../menu/common/TextComponent.svelte';
-    import {type KeyEvent, type OverlayChatEvent, type EventMap} from '../../../../integration/events';
+    import {type EventMap, type KeyEvent, type OverlayChatEvent} from '../../../../integration/events';
     import {getMinecraftKeybinds} from '../../../../integration/rest';
     import type {MinecraftKeybind} from '../../../../integration/types';
     import {fly} from 'svelte/transition';

@@ -44,7 +44,7 @@ import net.minecraft.util.math.Box
  * Allows you to see server-sided rotations.
  */
 
-object ModuleRotations : ClientModule("Rotations", Category.RENDER) {
+object ModuleRotations : ClientModule("Rotations", Category.RENDER, state = true) {
 
     /**
      * Body part to modify the rotation of.

@@ -28,6 +28,17 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
  */
 
 object ModuleReach : ClientModule("Reach", Category.PLAYER) {
-    val combatReach by float("CombatReach", 4.2f, 3f..8f).apply { tagBy(this) }
-    val blockReach by float("BlockReach", 5f, 4.5f..8f)
+    val combatReach by float("CombatReach", 3f, 3f..8f).apply { tagBy(this) }
+    val blockReach by float("BlockReach", 4.7f, 4.5f..8f)
+    val verticalExempt by boolean("VerticalExempt",false)
+
+    @JvmStatic
+    fun getExemptBlockReach(pitch: Float): Double {
+        return when {
+            pitch <= 70 -> 4.5
+            pitch >= 83 -> 6.0
+            else -> 5.0 + (pitch - 70) / (83 - 70)
+        }
+    }
+
 }

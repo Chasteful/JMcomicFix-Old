@@ -5,21 +5,21 @@ import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.client.player
 import net.ccbluex.liquidbounce.utils.entity.PositionExtrapolation
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfo
+import net.minecraft.client.world.ClientWorld
+import net.minecraft.entity.Entity
 import net.minecraft.entity.EntityDimensions
+import net.minecraft.entity.projectile.ArrowEntity
+import net.minecraft.entity.projectile.ProjectileUtil
+import net.minecraft.item.ItemStack
+import net.minecraft.item.Items
 import net.minecraft.util.hit.HitResult
 import net.minecraft.util.math.Box
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.RaycastContext
 import net.minecraft.world.World
 import kotlin.math.cos
-import kotlin.math.sin
-import net.minecraft.client.world.ClientWorld
-import net.minecraft.entity.projectile.ArrowEntity
-import net.minecraft.entity.Entity
-import net.minecraft.item.ItemStack
-import net.minecraft.item.Items
-import net.minecraft.entity.projectile.ProjectileUtil
 import kotlin.math.max
+import kotlin.math.sin
 
 object SituationalArrowAngleCalculator : ProjectileAngleCalculator() {
 

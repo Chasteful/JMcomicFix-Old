@@ -44,7 +44,7 @@ import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
 
-object ModulePotionAura : ClientModule("PotionAura", Category.PLAYER, aliases = arrayOf("AutoDebuff")) {
+object ModulePotionAura : ClientModule("PotionAura", Category.PLAYER, aliases = listOf("AutoDebuff")) {
     private val delay by int("Delay", 10, 0..40, "ticks")
     private val throwRange = floatRange("ThrowRange", 5f..16f, 0f..20f)
     private val onlyPlayer by boolean("OnlyPlayer", true)

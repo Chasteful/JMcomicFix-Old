@@ -1,7 +1,7 @@
 <script lang="ts">
     import {createEventDispatcher} from "svelte";
     import {REST_BASE} from "../../../../integration/host";
-    import AvatarView from "../../../hud/common/PlayerView/AvatarView.svelte";
+    import AvatarView from "../../../hud/common/Canvas/AvatarView.svelte";
     import {removeColorCodes} from "../../../../util/color_utils";
 
     const dispatch = createEventDispatcher<{
@@ -23,9 +23,7 @@
      on:click={() => dispatch("toggle", { enabled: !enabled, value })}>
     {#if isPlayer}
         <div class="avatar">
-            <div class="avatar-inner">
-                <AvatarView skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${value}`}/>
-            </div>
+            <AvatarView skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${value}`}/>
         </div>
     {:else if icon}
         <img class="icon" src="{icon}" alt={value}/>
@@ -58,20 +56,17 @@
 
   .avatar {
     position: relative;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 24px;
     height: 24px;
+  }
 
-
-    .avatar-inner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(2.5);
-      transform-origin: center center;
-    }
+  .avatar :global(canvas) {
+    display: block;
+    max-width: 24px;
+    max-height: 24px;
   }
 
   .icon {
@@ -80,7 +75,7 @@
   }
 
   .name {
-    font-size: 14px;
+    font-size: calc(var(--font-size) + 2px);
     color: $text;
     text-overflow: ellipsis;
     white-space: nowrap;

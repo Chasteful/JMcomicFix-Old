@@ -6,8 +6,8 @@
 </script>
 {#if settings?.glitched}
     <GlitchedLayers size={262}>
-        <ClientLogo gradient={true}/>
+        <ClientLogo gradient={settings?.gradient} current={true}/>
     </GlitchedLayers>
 {:else}
-    <ClientLogo gradient={true}/>
+    <ClientLogo gradient={settings?.gradient} current={true}/>
 {/if}

@@ -19,8 +19,10 @@
  */
 package net.ccbluex.liquidbounce.integration.theme
 
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.ccbluex.liquidbounce.LiquidBounce
+import net.ccbluex.liquidbounce.api.core.renderScope
 import net.ccbluex.liquidbounce.api.models.marketplace.MarketplaceItemType
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.types.nesting.Configurable
@@ -69,11 +71,9 @@ object ThemeManager : Configurable("theme") {
     var shaderEnabled by boolean("Shader", false)
         .onChange { enabled ->
             if (enabled) {
-                mc.execute {
-                    runBlocking {
-                        theme.compileShader()
-                        includedTheme.compileShader()
-                    }
+                renderScope.launch {
+                    theme.compileShader()
+                    includedTheme.compileShader()
                 }
             }
 
@@ -84,7 +84,7 @@ object ThemeManager : Configurable("theme") {
         ConfigSystem.root(this)
     }
 
-    fun init() = runBlocking {
+    suspend fun init() {
         // Load default theme
         includedTheme = Theme.load(Theme.Origin.RESOURCE, File("liquidbounce"))
     }
@@ -101,8 +101,7 @@ object ThemeManager : Configurable("theme") {
         themes.clear()
 
         // 1st priority
-        themesFolder.listFiles()
-            ?.filter(File::isDirectory)
+        themesFolder.listFiles { it.isDirectory }
             ?.forEach { file ->
                 if (file.name.equals("default", true)) {
                     return@forEach

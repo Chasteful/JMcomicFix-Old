@@ -1,14 +1,14 @@
 <script lang="ts">
     import type {ItemStack} from "../../../../integration/types";
     import {listen} from "../../../../integration/ws";
-    import type {PlayerInventory, ClientPlayerInventoryEvent} from "../../../../integration/events";
+    import type {ClientPlayerInventoryEvent, PlayerInventory} from "../../../../integration/events";
     import {getPlayerInventory} from "../../../../integration/rest";
-    import ItemStackView from "../../common/ItemView/ItemStackView.svelte";
     import {onMount} from "svelte";
     import {expoInOut} from "svelte/easing";
     import {fly} from "svelte/transition";
     import {emptySlotCount} from "../island/Island";
     import Line from "../../common/Trims/Line.svelte";
+    import ItemStackDisplay from "../../common/ItemView/ItemStackDisplay.svelte";
 
     let stacks: ItemStack[] = [];
     export let settings: { [name: string]: any };
@@ -45,7 +45,12 @@
     {/if}
     <div class="container">
         {#each stacks as stack (stack)}
-            <ItemStackView {stack}/>
+            <ItemStackDisplay
+                    {stack}
+                    dyedMode={true}
+                    showDurability={stack.damage > 0}
+                    durabilityColorMode={true}
+            />
         {/each}
     </div>
 </div>

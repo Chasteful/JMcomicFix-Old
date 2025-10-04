@@ -3,13 +3,8 @@ package net.ccbluex.liquidbounce.utils.render
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.features.module.ClientModule
-import net.ccbluex.liquidbounce.render.BoxRenderer
-import net.ccbluex.liquidbounce.render.GenericRainbowColorMode
-import net.ccbluex.liquidbounce.render.GenericStaticColorMode
-import net.ccbluex.liquidbounce.render.GenericSyncColorMode
-import net.ccbluex.liquidbounce.render.drawBoxSide
+import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
-import net.ccbluex.liquidbounce.render.renderEnvironmentForWorld
 import net.ccbluex.liquidbounce.utils.block.boxWithBoundsX
 import net.ccbluex.liquidbounce.utils.block.boxWithBoundsY
 import net.ccbluex.liquidbounce.utils.block.boxWithBoundsZ
@@ -109,9 +104,7 @@ class BlockHitRenderer(
             if (side != null && sideOnly) {
                 drawBoxSide(translatedPosition, side, fillColor, outline)
             } else {
-                BoxRenderer.drawWith(this) {
-                    drawBox(translatedPosition, fillColor, outline)
-                }
+                drawBoxes { drawBox(translatedPosition, fillColor, outline) }
             }
         }
     }

@@ -7,6 +7,7 @@ import net.ccbluex.liquidbounce.event.events.TickPacketProcessEvent
 import net.ccbluex.liquidbounce.event.events.TransferOrigin
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
+import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.utils.client.handlePacket
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.client.sendPacketSilently
@@ -78,12 +79,12 @@ object DelayBlinkPacketManager : EventListener {
 
     @Suppress("unused")
     private val checkEnabledHandler = tickHandler {
-        waitUntil { ModuleDelayBlink.enabled }
+        tickUntil { ModuleDelayBlink.enabled }
         enabled = true
         packets.clear()
         ticks = 0
         full = false
-        waitUntil { !enabled }
+        tickUntil { !enabled }
     }
 
     @Suppress("unused")

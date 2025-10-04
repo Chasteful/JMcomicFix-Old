@@ -14,6 +14,7 @@
     let expanded = false;
     let optionRefs: HTMLElement[] = [];
     let optionMaxHeight = '0px';
+    let dropdownElement: HTMLElement;
 
     function updateValue(v: string) {
         value = v;
@@ -22,7 +23,8 @@
 
     afterUpdate(() => {
         if (expanded && optionRefs.length > 0) {
-            const panelHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--panel-height')) || window.innerHeight;
+            const root = dropdownElement?.closest('.panel-wrapper') as HTMLElement;
+            const panelHeight = root ? parseFloat(getComputedStyle(root).getPropertyValue('--panel-height')) || window.innerHeight : window.innerHeight;
             optionMaxHeight = `min(66vh, ${0.66 * panelHeight}px)`;
         }
     });
@@ -32,7 +34,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="dropdown" class:expanded>
+<div class="dropdown" class:expanded bind:this={dropdownElement}>
     <div class="head" on:click={() => (expanded = !expanded)}>
         {#if name !== null}
       <span class="text">

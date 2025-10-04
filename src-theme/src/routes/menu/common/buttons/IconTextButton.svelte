@@ -37,13 +37,57 @@
             isIntent = false;
         }
     }
+    function ripple(e: MouseEvent) {
+        if (disabled) return;
+        const clickedEl = e.currentTarget as HTMLElement;
+        const rect = clickedEl.getBoundingClientRect();
+        const size = clickedEl.clientWidth;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const ripple = document.createElement('span');
+        ripple.style.cssText = `
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(0);
+        width: ${size * 2}px;
+        height: ${size * 2}px;
+        left: ${x - size}px;
+        top: ${y - size}px;
+        pointer-events: none;
+        transition: transform 700ms, opacity 700ms;
+        transition-timing-function: cubic-bezier(0.250, 0.460, 0.450, 0.940);
+        opacity: 1;
+    `;
+
+        clickedEl.style.position = 'relative';
+        clickedEl.style.overflow = 'hidden';
+        clickedEl.appendChild(ripple);
+
+        requestAnimationFrame(() => {
+            ripple.style.transform = 'scale(1)';
+            ripple.style.opacity = '0';
+        });
+
+        setTimeout(() => {
+            if (ripple.parentNode) {
+                ripple.parentNode.removeChild(ripple);
+            }
+        }, 700);
+    }
+
+    function handleClick(e: MouseEvent) {
+        dispatch("click");
+        ripple(e);
+    }
 </script>
 
 <button
         class="icon-text-button"
         class:intent={isIntent}
         {disabled}
-        on:click={() => dispatch("click")}
+        on:click={handleClick}
         on:mouseenter={handleMouseEnter}
         on:mouseleave={handleMouseLeave}
         style="--button-width: {buttonWidth}px"
@@ -78,6 +122,7 @@
     font-size: 24px;
     color: var(--button-text);
     transition: width 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
     overflow: hidden;
     height: 60px;
     width: 60px;

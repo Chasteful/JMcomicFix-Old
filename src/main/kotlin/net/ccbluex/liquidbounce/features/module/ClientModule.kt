@@ -57,7 +57,7 @@ open class ClientModule(
     @Exclude val disableActivation: Boolean = notActivatable, // disable activation
     hide: Boolean = false, // default hide
     @Exclude val disableOnQuit: Boolean = false, // disables module when player leaves the world,
-    aliases: Array<out String> = emptyArray() // additional names under which the module is known
+    aliases: List<String> = emptyList() // additional names under which the module is known
 ) : ToggleableConfigurable(null, name, state, aliases = aliases), EventListener, MinecraftShortcuts {
 
     /**
@@ -160,9 +160,6 @@ open class ClientModule(
             }
         }
 
-        if (!inGame) {
-            return state
-        }
         calledSinceStartup = true
 
         val state = super.onToggled(state)

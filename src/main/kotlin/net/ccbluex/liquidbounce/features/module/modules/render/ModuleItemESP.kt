@@ -25,12 +25,21 @@ import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.CleanupPlanGenerator
+import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.ItemSlotType
+import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.ModuleInventoryCleaner
 import net.ccbluex.liquidbounce.render.*
+import net.ccbluex.liquidbounce.render.engine.font.FontRendererBuffers
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.entity.interpolateCurrentPosition
+import net.ccbluex.liquidbounce.utils.inventory.ItemSlot
+import net.ccbluex.liquidbounce.utils.inventory.VirtualItemSlot
+import net.ccbluex.liquidbounce.utils.inventory.findNonEmptySlotsInInventory
+import net.ccbluex.liquidbounce.utils.math.average
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen
 import net.minecraft.entity.Entity
 import net.minecraft.entity.ItemEntity
+import net.minecraft.item.ItemStack
 import net.minecraft.item.Items.*
 import net.minecraft.util.math.Box
 
@@ -46,67 +55,53 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
 
     override val baseKey: String
         get() = "liquidbounce.module.itemEsp"
+    private val useInvManager by boolean("UseInvManager", true)
+    private val modes = choices("Mode", NametagsMode,
+        arrayOf(GlowMode, OutlineMode, BoxMode, NametagsMode))
 
-    private val modes = choices("Mode", NametagsMode, arrayOf(GlowMode, OutlineMode, BoxMode,NametagsMode))
     private val colorMode = choices("ColorMode", 2) {
         arrayOf(
             GenericStaticColorMode(it, Color4b(255, 179, 72, 255)),
             GenericRainbowColorMode(it),
             GenericSyncColorMode(it),
+            GenericItemRarityColorMode(it),
         )
     }
+
     private val defaultItems = setOf(
-        DIAMOND,
-        IRON_INGOT,
-        GOLD_INGOT,
-        EMERALD,
-        NETHERITE_INGOT,
-        ENCHANTED_BOOK,
+        WHEAT_SEEDS,
+        PUMPKIN_SEEDS,
+        MELON_SEEDS,
+        BEETROOT_SEEDS,
 
-        TRIDENT,
-        BOW,
-        FISHING_ROD,
-        CROSSBOW,
-        SHIELD,
-        TOTEM_OF_UNDYING,
-
-
-        DIAMOND_SWORD,
-        DIAMOND_PICKAXE,
-        DIAMOND_AXE,
-        DIAMOND_SHOVEL,
-        DIAMOND_HELMET,
-        DIAMOND_CHESTPLATE,
-        DIAMOND_LEGGINGS,
-        DIAMOND_BOOTS,
-
-        // Utility items
-        ELYTRA,
-        ENDER_PEARL,
-        FIREWORK_ROCKET,
-        WATER_BUCKET,
-        LAVA_BUCKET,
-        OBSIDIAN,
-        ENDER_CHEST,
-
-        POTION,
-        SPLASH_POTION,
-        LINGERING_POTION,
-
-        ARROW,
-        SPECTRAL_ARROW,
-
-
-        ENCHANTED_GOLDEN_APPLE,
-        GOLDEN_APPLE,
-
-        SNOWBALL,
-        TNT,
-        FLINT_AND_STEEL
+        DANDELION,
+        POPPY,
+        BLUE_ORCHID,
+        ALLIUM,
+        AZURE_BLUET,
+        RED_TULIP,
+        ORANGE_TULIP,
+        WHITE_TULIP,
+        PINK_TULIP,
+        OXEYE_DAISY,
+        CORNFLOWER,
+        LILY_OF_THE_VALLEY,
+        SUNFLOWER,
+        LILAC,
+        ROSE_BUSH,
+        PEONY,
+        SUGAR_CANE,
+        KELP,
+        BAMBOO,
+        CACTUS,
+        VINE,
+        SEAGRASS,
+        SWEET_BERRIES,
+        DRIED_KELP,
+        DEAD_BUSH,
     )
-
     val filteredItems by items(
-        "Items",
+        "FilterItems",
         defaultItems.toMutableSet()
     )
 
@@ -114,60 +109,120 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
         override val parent: ChoiceConfigurable<Choice>
             get() = modes
         private val scale by float("Scale", 1f, 0.5f..4f)
+        private val clusterRadius by float("ClusterRadius", 2f, 0.5f..3f)
         private val maximumDistance by float("MaximumDistance", 50f, 1f..256f)
         private val number by boolean("Number", true)
-        private val vanillaName by boolean("VanillaName",false)
+        private val vanillaName by boolean("VanillaName", false)
+
         @Suppress("unused")
         val renderHandler = handler<OverlayRenderEvent> { event ->
             val camera = mc.cameraEntity ?: return@handler
 
             val items = world.entities.filterIsInstance<ItemEntity>()
-                .filter { it.stack.item in this@ModuleItemESP.filteredItems }
+                .filter(::shouldRender)
                 .filter { it.squaredDistanceTo(camera) <= maximumDistance * maximumDistance }
 
             renderEnvironmentForGUI {
-                fontRenderer.withBuffers { buf ->
-                    for (item in items) {
-                        val pos = item.interpolateCurrentPosition(event.tickDelta)
+                val groupedByItem = items.groupBy { it.stack.item }
+                for ((item, sameItems) in groupedByItem) {
+                    val maxRarity = sameItems.maxOf { it.stack.rarity }
+                    val bestItemsInGroup = sameItems.filter { it.stack.rarity == maxRarity }
+                    val clusters = computeItemClusters(bestItemsInGroup, event.tickDelta, clusterRadius)
+                    for (cluster in clusters) {
+                        val clusterItems = cluster.items
+                        if (clusterItems.isEmpty()) continue
+                        val totalCount = clusterItems.sumOf { it.stack.count }
+                        val bestStack = clusterItems.first().stack
+
+                        val centerPos = clusterItems.map { it.interpolateCurrentPosition(event.tickDelta) }.average()
                         val screenPos = WorldToScreen.calculateScreenPos(
-                            pos.add(0.0, item.height + 0.25, 0.0)) ?: continue
+                            centerPos.add(0.0, clusterItems.first().height + 0.25, 0.0)
+                        ) ?: continue
 
                         matrixStack.push()
                         matrixStack.translate(screenPos.x, screenPos.y, 0f)
 
                         val distanceScale = mc.player?.let {
-                            (1f / (it.distanceTo(item) * 0.1f)).coerceIn(0.5f, 2f) /5 * scale } ?: scale
-                        matrixStack.scale(distanceScale, distanceScale, 1f)
-                        val displayName = if  (vanillaName) {
-                            item.stack.name.string
-                        }else{
-                            item.stack.itemName.string
+                            (1f / (it.pos.distanceTo(centerPos) * 0.1f)).coerceIn(0.5, 2.0) / 5 * scale
+                        } ?: scale
+
+                        matrixStack.scale(distanceScale.toFloat(), distanceScale.toFloat(), 1f)
+                        val displayName = if (vanillaName) {
+                            bestStack.name.string
+                        } else {
+                            bestStack.itemName.string
                         }
-                        val count = item.stack.count
-                        val text = if (number && count > 1) "$displayName x$count" else displayName
+                        val text = if (number && totalCount > 1) "$displayName x$totalCount" else displayName
 
                         val processed = fontRenderer.process(text)
                         val textWidth = fontRenderer.getStringWidth(processed)
                         val textHeight = fontRenderer.height
 
+                        val itemColor = this@ModuleItemESP.colorMode.activeChoice.getColor(bestStack)
+
+                        val fontBuffers = FontRendererBuffers()
                         fontRenderer.draw(
                             processed,
                             -textWidth / 2f,
                             -textHeight / 2f,
-                            true,
+                            shadow = true,
                             z = 0.001f
                         )
-                        fontRenderer.commit(buf)
+                        fontRenderer.commit(this, fontBuffers)
+                        withColor(itemColor) {
+                            fontBuffers.draw()
+                        }
 
                         matrixStack.pop()
                     }
                 }
             }
-
         }
 
-    }
 
+        private data class ClusteredItems(val items: List<ItemEntity>)
+
+        @Suppress("NestedBlockDepth","CognitiveComplexMethod")
+        private fun computeItemClusters(
+            items: List<ItemEntity>,
+            tickDelta: Float,
+            radius: Float
+        ): List<ClusteredItems> {
+            val visited = mutableSetOf<ItemEntity>()
+            val clusters = mutableListOf<ClusteredItems>()
+            val radiusSquared = radius * radius
+
+            for (item in items) {
+                if (item in visited) continue
+                val cluster = mutableListOf<ItemEntity>()
+                val queue = ArrayDeque<ItemEntity>()
+                queue.add(item)
+                visited.add(item)
+
+                while (queue.isNotEmpty()) {
+                    val current = queue.removeFirst()
+                    val currentPos = current.interpolateCurrentPosition(tickDelta)
+                    cluster.add(current)
+
+                    for (other in items) {
+                        if (other in visited) continue
+                        val otherPos = other.interpolateCurrentPosition(tickDelta)
+                        if (currentPos.squaredDistanceTo(otherPos) <= radiusSquared) {
+                            visited.add(other)
+                            queue.add(other)
+                        }
+                    }
+                }
+                if (cluster.size > 1) {
+                    clusters.add(ClusteredItems(cluster))
+                } else {
+                    clusters.add(ClusteredItems(cluster))
+                }
+            }
+
+            return clusters
+        }
+    }
 
     private object BoxMode : Choice("Box") {
 
@@ -187,7 +242,7 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
             val filtered = world.entities.filter(::shouldRender)
 
             renderEnvironmentForWorld(matrixStack) {
-                BoxRenderer.drawWith(this) {
+                drawBoxes {
                     for (entity in filtered) {
                         val pos = entity.interpolateCurrentPosition(event.partialTicks)
 
@@ -210,9 +265,31 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
             get() = modes
     }
 
+    private fun ItemStack.filterPlanGenerator(): Boolean {
+        val template = ModuleInventoryCleaner.cleanupTemplateFromSettings
+
+        val invSlots: List<ItemSlot> = findNonEmptySlotsInInventory()
+
+        val tempSlot = VirtualItemSlot(
+            itemStack = this,
+            slotType = ItemSlotType.CONTAINER,
+            id = hashCode()
+        )
+
+        val available = ArrayList<ItemSlot>(invSlots.size + 1).apply {
+            addAll(invSlots)
+            add(tempSlot)
+        }
+
+        val plan = CleanupPlanGenerator(template, available).generatePlan()
+
+        return plan.usefulItems.any { ItemStack.areEqual(it.itemStack, this) }
+    }
     fun shouldRender(entity: Entity?): Boolean {
         if (entity !is ItemEntity) return false
-        return entity.stack.item in filteredItems
+        if (entity.stack.item in filteredItems) return false
+        if (useInvManager && !entity.stack.filterPlanGenerator()) return false
+        return true
     }
 
     fun getColor() = this.colorMode.activeChoice.getColor(null)

@@ -9,8 +9,6 @@
     import {hsvToRgba} from "../../../../../util/color_utils";
     import {Tween} from "svelte/motion";
 
-    export let settings: { [name: string]: any };
-
     let showHealthBar = false;
     let blink = false;
     let playerData: PlayerData | null = null;

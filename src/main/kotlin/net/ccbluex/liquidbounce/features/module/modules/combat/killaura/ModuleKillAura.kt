@@ -22,7 +22,7 @@ package net.ccbluex.liquidbounce.features.module.modules.combat.killaura
 import com.google.gson.JsonObject
 import net.ccbluex.jmcomicfix.utils.aiming.features.processors.NeuralNetworkRotationProcessor
 import net.ccbluex.liquidbounce.config.types.NamedChoice
-import net.ccbluex.liquidbounce.event.Sequence
+import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
@@ -113,7 +113,7 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
         get() = requires.all { it.asBoolean }
 
     // Bypass techniques
-    internal val raycast by enumChoice("Raycast", TRACE_ALL)
+    internal val raycast by enumChoice("RaycastFilter", TRACE_ONLY_ENEMY)
     private val criticalsSelectionMode by enumChoice("Criticals", CriticalsSelectionMode.SMART)
     private val keepSprint by boolean("KeepSprint", true)
 
@@ -209,7 +209,7 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
                 if (hasUnblocked) {
                     waitTicks(KillAuraAutoBlock.currentTickOff)
                 }
-                dealWithFakeSwing(this, null)
+                dealWithFakeSwing(null)
             }
             return@tickHandler
         }
@@ -242,7 +242,7 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
             targetTracker.target = crosshairTarget
         }
 
-        attackTarget(this, crosshairTarget, rotation)
+        attackTarget(crosshairTarget, rotation)
     }
 
     val shouldBlockSprinting
@@ -258,7 +258,7 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
     }
 
     @Suppress("CognitiveComplexMethod", "CyclomaticComplexMethod")
-    private suspend fun attackTarget(sequence: Sequence, target: Entity, rotation: Rotation) {
+    private suspend fun attackTarget(target: Entity, rotation: Rotation) {
         // Make it seem like we are blocking
         KillAuraAutoBlock.makeSeemBlock()
 
@@ -285,10 +285,10 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
             // Deal with fake swing
             if (KillAuraFailSwing.enabled) {
                 if (hasUnblocked) {
-                    sequence.waitTicks(KillAuraAutoBlock.currentTickOff)
+                    waitTicks(KillAuraAutoBlock.currentTickOff)
                 }
 
-                dealWithFakeSwing(sequence, target)
+                dealWithFakeSwing(target)
             }
             return
         }
@@ -297,7 +297,7 @@ object ModuleKillAura : ClientModule("KillAura", Category.COMBAT) {
 
         // Attack enemy, according to the attack scheduler
         if (clickScheduler.isClickTick && validateAttack(target)) {
-            clickScheduler.attack(sequence, rotation) {
+            clickScheduler.attack(rotation) {
                 // On each click, we check if we are still ready to attack
                 if (!validateAttack(target)) {
                     return@attack false

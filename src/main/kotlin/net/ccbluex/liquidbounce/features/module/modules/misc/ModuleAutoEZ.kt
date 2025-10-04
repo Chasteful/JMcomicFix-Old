@@ -16,7 +16,7 @@ import net.minecraft.entity.Entity
 import java.io.RandomAccessFile
 
 
-object ModuleAutoEZ : ClientModule("AutoEz", Category.MISC, aliases = arrayOf("AutoL")) {
+object ModuleAutoEZ : ClientModule("AutoEz", Category.MISC, aliases = listOf("AutoL")) {
 
     private object WordPatternCustom : Choice("Custom") {
         override val parent: ChoiceConfigurable<*>
@@ -131,7 +131,7 @@ object ModuleAutoEZ : ClientModule("AutoEz", Category.MISC, aliases = arrayOf("A
     init {
         tree(RandomTextInEnd)
     }
-    
+
     private val CHARSET: List<Char> by lazy {
         val upper = 'A'..'Z'
         val lower = 'a'..'z'

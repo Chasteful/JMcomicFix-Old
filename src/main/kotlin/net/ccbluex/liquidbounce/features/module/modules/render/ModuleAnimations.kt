@@ -18,9 +18,9 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
+import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
-import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.PlayerStrideEvent
 import net.ccbluex.liquidbounce.event.handler
@@ -41,7 +41,7 @@ import net.minecraft.util.math.RotationAxis
  * If they are not willing to contribute, please do not add the animation to this module.
  */
 @Suppress("MagicNumber")
-object ModuleAnimations : ClientModule("Animations", Category.RENDER, aliases = arrayOf("ViewModel")) {
+object ModuleAnimations : ClientModule("Animations", Category.RENDER, aliases = listOf("ViewModel")) {
 
     init {
         tree(MainHand)

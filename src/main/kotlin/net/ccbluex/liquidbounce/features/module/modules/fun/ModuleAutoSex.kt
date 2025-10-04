@@ -19,7 +19,9 @@ import net.minecraft.util.math.Vec3d
 import java.awt.Color
 import java.net.URI
 import java.util.*
-import kotlin.math.*
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 //TODO Sex positions and trackTarget Move

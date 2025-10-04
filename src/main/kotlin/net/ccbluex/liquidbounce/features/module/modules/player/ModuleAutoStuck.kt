@@ -19,17 +19,15 @@ import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket
 
 object ModuleAutoStuck : ClientModule("AutoStuck", Category.WORLD) {
 
-    val immediately by boolean("Immediately", false)
-    private val disableOnFlag by boolean("DisablerOnFlag",false)
-    private val voidFallPrediction = tree(VoidFallPredictor())
-    private val fallDistance by int("FallDistance", 15, 0..25, "blocks")
-    private val resetTicks by int("ResetTicks", 300, 200..2000, "ticks")
+    private val voidFallPrediction = tree(VoidFallPredictor( ticksToPredict = 120, voidThreshold = -64 ))
+    private val fallDistance by float("FallDistance", 15f, 0f..25f, "blocks")
     private val pauseOnFlag by int("PauseOnFlag", 20, 0..100, "ticks")
+    private val immediately by boolean("Immediately", true)
+    private val disableOnFlag by boolean("DisablerOnFlag",false)
     private val notCondition by multiEnumChoice("Not", NotCondition.WhilePearl)
 
     private const val LOWEST_Y = -64
     private var lastGroundY = LOWEST_Y
-    private var freezingTicks = 0
     private var pauseTicks = 0
     private var ignoreTicks = 0
 
@@ -46,7 +44,6 @@ object ModuleAutoStuck : ClientModule("AutoStuck", Category.WORLD) {
             ModuleStuck.enabled = false
         }
         lastGroundY = LOWEST_Y
-        freezingTicks = 0
         pauseTicks = 0
         ignoreTicks = 0
     }
@@ -74,12 +71,16 @@ object ModuleAutoStuck : ClientModule("AutoStuck", Category.WORLD) {
         player.isInsideWaterOrBubbleColumn ||hasSolidBlockBelow()
 
     private fun isReadyToActivate(): Boolean {
-        val voidFallImminent = if (immediately) {
-            voidFallPrediction.isVoidFallImminent
-        } else {
-            player.y <= lastGroundY + 1 - fallDistance && isInVoid(player.pos)
+        if (player.isOnGround ){
+            return false
         }
-        return !player.isOnGround  && notCondition.all { it.testCondition() } && voidFallImminent
+        val voidFallImminent = if (immediately) {
+            player.y <= lastGroundY + 1.25 && isInVoid(player.pos)
+        } else {
+            player.y <= lastGroundY + 1.25 - fallDistance && isInVoid(player.pos)
+        }
+
+        return voidFallPrediction.isVoidFallImminent && notCondition.all { it.testCondition() } && voidFallImminent
     }
 
     @Suppress("unused")
@@ -91,7 +92,7 @@ object ModuleAutoStuck : ClientModule("AutoStuck", Category.WORLD) {
             reset(true)
             return@tickHandler
         }
-        if (!immediately && player.isOnGround) {
+        if (player.isOnGround) {
             lastGroundY = player.y.toInt() - 1
         }
 
@@ -111,8 +112,7 @@ object ModuleAutoStuck : ClientModule("AutoStuck", Category.WORLD) {
         }
 
         if (freezing) {
-            freezingTicks++
-            if (freezingTicks >= resetTicks || shouldDisableFreeze()) {
+            if (shouldDisableFreeze()) {
                 reset(true)
             }
         }

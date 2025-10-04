@@ -17,6 +17,7 @@ import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.render.OverlayTargetRenderer
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryData
 import net.minecraft.item.BowItem
+import net.minecraft.item.CrossbowItem
 import net.minecraft.item.TridentItem
 
 /**
@@ -38,9 +39,16 @@ object AutoBowAimbotFeature : ToggleableConfigurable(ModuleAutoBow, "BowAimbot",
     private val tickRepeatable = tickHandler {
         targetTracker.reset()
 
-        // Should check if player is using bow
-        val activeItem = player.activeItem?.item
-        if (activeItem !is BowItem && activeItem !is TridentItem) {
+        val stack = player.mainHandStack
+        val activeItem = if (player.isUsingItem) {
+            player.activeItem?.item
+        } else if (stack.item is CrossbowItem && CrossbowItem.isCharged(stack)) {
+            stack.item
+        } else {
+            null
+        }
+
+        if (activeItem !is BowItem && activeItem !is TridentItem && activeItem !is CrossbowItem) {
             return@tickHandler
         }
 

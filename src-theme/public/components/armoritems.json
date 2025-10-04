@@ -12,7 +12,7 @@
     {
       "type": "BOOLEAN",
       "name": "Divider",
-      "value": true
+      "value": false
     },
     {
       "type": "BOOLEAN",

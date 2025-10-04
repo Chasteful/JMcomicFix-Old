@@ -3,9 +3,9 @@
     import type {PlayerData} from "../../../../../integration/types";
     import type {TargetChangeEvent} from "../../../../../integration/events";
     import {REST_BASE} from "../../../../../integration/host";
-    import AvatarView from "../../../common/PlayerView/AvatarView.svelte";
+    import AvatarView from "../../../common/Canvas/AvatarView.svelte";
     import {removeColorCodes} from "../../../../../util/color_utils";
-    import {popOut, popIn} from "../../../../../util/animate_utils";
+    import {popIn, popOut} from "../../../../../util/animate_utils";
     import {visible} from "../TargetHud";
 
     let target: PlayerData | null = null;
@@ -42,9 +42,7 @@
         >
             <div class="main-wrapper">
                 <div class="avatar">
-                    <div class="avatar-inner">
-                        <AvatarView skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${target.uuid}`}/>
-                    </div>
+                    <AvatarView skinUrl={`${REST_BASE}/api/v1/client/resource/skin?uuid=${target.uuid}`}/>
                 </div>
                 <div class="info-container">
                     <div class="info">Name: {removeColorCodes(target.username)}</div>
@@ -75,7 +73,7 @@
   ;
   .targethud {
     color: $text-color;
-    font-size: 14px;
+    font-size: 20px;
   }
 
   .main-wrapper {
@@ -86,18 +84,8 @@
   }
 
   .avatar {
-    width: 50px;
-    height: 50px;
-    position: relative;
-
-    .avatar-inner {
-      position: absolute;
-      top: 45%;
-      left: 50%;
-      transform: scale(5.7);
-      transform-origin: center center;
-      filter: drop-shadow(0 0 4px rgba($base, 0.5));
-    }
+    display: inline-block;
+    filter: drop-shadow(0 0 4px rgba($base, 0.5));
   }
 
   .info-container {

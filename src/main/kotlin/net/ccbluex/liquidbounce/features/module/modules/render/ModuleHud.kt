@@ -18,7 +18,6 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.render
 
-import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.events.*
@@ -32,10 +31,10 @@ import net.ccbluex.liquidbounce.integration.backend.browser.Browser
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserSettings
 import net.ccbluex.liquidbounce.integration.backend.browser.GlobalBrowserSettings
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
-import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.integration.theme.component.components.minimap.MinimapComponent
 import net.ccbluex.liquidbounce.integration.theme.component.components.notification.NotificationComponent
 import net.ccbluex.liquidbounce.integration.theme.component.components.targethud.TargetHudComponent
+import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.markAsError
@@ -106,17 +105,6 @@ object ModuleHud : ClientModule("HUD", Category.RENDER, state = true, hide = tru
         }
         val shadowColor by color("Shadow", Color4b.fromHex("#232323")).onChanged {
             EventManager.callEvent(HudValueChangeEvent(ModuleHud))
-        }
-        val arraylistPrefixRender = multiEnumChoice(
-            "ArraylistPrefixRender",
-            DoPrefix.CHOICE,
-            DoPrefix.CHOOSE,
-            DoPrefix.INT,
-            DoPrefix.INT_RANGE,
-            DoPrefix.FLOAT,
-            DoPrefix.FLOAT_RANGE,
-        ).onChanged {
-            EventManager.callEvent(HudValueChangeEvent(this))
         }
     }
 
@@ -221,22 +209,12 @@ object ModuleHud : ClientModule("HUD", Category.RENDER, state = true, hide = tru
     fun getSecondaryColor(): Color4b = customization.secondaryColor
 
     @JvmStatic
-    fun getClientScale() :Float = customization.hudZoom
+    fun getScale() :Float = customization.hudZoom
 
     fun reopen() {
         close()
         if (enabled && visible) {
             open()
         }
-    }
-    enum class DoPrefix(override val choiceName: String) : NamedChoice {
-        CHOICE("CHOICE"),
-        CHOOSE("CHOOSE"),
-        MULTI_CHOOSE("MULTI_CHOOSE"),
-        INT_RANGE("INT_RANGE"),
-        FLOAT_RANGE("FLOAT_RANGE"),
-        INT("INT"),
-        FLOAT("FLOAT"),
-        TEXT("TEXT"),
     }
 }

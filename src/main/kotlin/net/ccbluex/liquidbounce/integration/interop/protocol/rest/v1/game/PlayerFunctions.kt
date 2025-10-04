@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSwordBlock.
 import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.ModuleNameProtect
 import net.ccbluex.liquidbounce.features.module.modules.misc.nameprotect.sanitizeForeignInput
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
+import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.PlayerInventoryData.StatusEffect
 import net.ccbluex.liquidbounce.utils.client.interaction
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
@@ -42,6 +43,7 @@ import net.ccbluex.netty.http.util.httpOk
 import net.minecraft.entity.effect.StatusEffectInstance
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.ItemStack
+import net.minecraft.registry.Registries.STATUS_EFFECT
 import net.minecraft.scoreboard.Scoreboard
 import net.minecraft.scoreboard.ScoreboardDisplaySlot
 import net.minecraft.scoreboard.ScoreboardEntry
@@ -93,7 +95,7 @@ data class PlayerData(
     val experienceProgress: Float,
     val ping: Int,
     val serverAddress: String,
-    val effects: List<StatusEffectInstance>,
+    val effects: List<StatusEffect>,
     val mainHandStack: ItemStack,
     val offHandStack: ItemStack,
     val armorItems: List<ItemStack> = emptyList(),
@@ -136,7 +138,7 @@ data class PlayerData(
             player.experienceProgress.fixNaN(),
             player.ping,
             mc.currentServerEntry?.address ?: "SingleWorld",
-            player.statusEffects.toList(),
+            player.statusEffects.map(StatusEffect::fromInstance),
             player.mainHandStack,
             if (shouldHideOffhand(player = player) && hideShieldSlot) ItemStack.EMPTY else player.offHandStack,
             player.armorItems.toList(),
@@ -150,9 +152,6 @@ data class PlayerData(
             GameWins.victoryCount,
             PlayTimeTracker.getPlayTime(),
         )
-
-
-
     }
 }
 
@@ -182,6 +181,37 @@ data class PlayerData(
 
         )
     }
+        data class StatusEffect(
+            val effect: String,
+            val localizedName: String,
+            val duration: Int,
+            val amplifier: Int,
+            val ambient: Boolean,
+            val infinite: Boolean,
+            val visible: Boolean,
+            val showIcon: Boolean,
+            val color: Int
+        ) {
+            companion object {
+                @JvmStatic
+                fun fromInstance(inst: StatusEffectInstance): StatusEffect {
+                    val effectType = inst.effectType.value()
+                    val id = STATUS_EFFECT.getId(effectType).toString()
+                    return StatusEffect(
+                        effect = id,
+                        localizedName = inst.translationKey,
+                        duration = inst.duration,
+                        amplifier = inst.amplifier,
+                        ambient = inst.isAmbient,
+                        infinite = inst.isInfinite,
+                        visible = inst.shouldShowParticles(),
+                        showIcon = inst.shouldShowIcon(),
+                        color = effectType.color
+                    )
+                }
+            }
+        }
+
 
     private infix fun List<ItemStack>.eq(other: List<ItemStack>) =
         this.size == other.size && this.indices.all { ItemStack.areEqual(this[it], other[it]) }

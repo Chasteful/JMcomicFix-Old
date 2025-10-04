@@ -1,6 +1,6 @@
 <script lang="ts">
     import {onMount} from "svelte";
-    import type {ModuleSetting, BindSetting} from "../../../integration/types";
+    import type {BindSetting, ModuleSetting} from "../../../integration/types";
     import {getModules, getModuleSettings, getPrintableKeyName} from "../../../integration/rest";
     import {listen} from "../../../integration/ws";
     import {expoInOut} from "svelte/easing";

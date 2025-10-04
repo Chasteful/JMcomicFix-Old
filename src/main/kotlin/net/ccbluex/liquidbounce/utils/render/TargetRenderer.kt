@@ -33,6 +33,7 @@ import net.minecraft.util.math.Vec3d
 import kotlin.math.cos
 import kotlin.math.sin
 
+
 /**
  * A target tracker to choose the best enemy to attack
  */
@@ -140,6 +141,7 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
     }
 
     inner class Ghost : WorldTargetRenderAppearance("Ghost") {
+
         private val glow = "particles/glow.png".registerAsDynamicImageFromClientResources()
         private var lastTime = System.currentTimeMillis()
 
@@ -257,8 +259,7 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
 
                 drawCustomMesh(
                     VertexFormat.DrawMode.QUADS,
-                    VertexFormats.POSITION_TEXTURE_COLOR,
-                    ShaderProgramKeys.POSITION_TEX_COLOR
+                    VertexInputType.PosTexColor,
                 ) { matrix ->
                     vertex(matrix, 0.0f, -size, 0.0f)
                         .texture(0.0f, 0.0f)
@@ -290,6 +291,7 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
             }
         }
     }
+
     inner class Capture(override val parent: ChoiceConfigurable<*>) : WorldTargetRenderAppearance("Capture") {
         private val captureTexture by lazy {
             "particles/capture.png".registerAsDynamicImageFromClientResources()
@@ -410,7 +412,7 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
             RenderSystem.setShaderTexture(0, captureTexture)
 
             with(env) {
-                drawGradientParticle(currentSize, (captureAlpha * alphaFactor).toInt())
+                drawGradientMesh(currentSize, (captureAlpha * alphaFactor).toInt())
             }
 
             RenderSystem.depthMask(true)
@@ -420,42 +422,37 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
             env.matrixStack.pop()
         }
 
-        private fun WorldRenderEnvironment.drawGradientParticle(currentSize: Float, alpha: Int) {
+        private fun WorldRenderEnvironment.drawGradientMesh(currentSize: Float, alpha: Int) {
             val (color1, color2) = colorMode.activeChoice.getColors(mc.player)
                 .let { it.first.withAlpha(alpha) to it.second.withAlpha(alpha) }
 
-            drawGradientQuad(currentSize, color1, color2)
-        }
-
-
-        private fun WorldRenderEnvironment.drawGradientQuad(size: Float, color1: Color4b, color2: Color4b) {
             drawCustomMesh(
                 VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
+                VertexInputType.PosTexColor,
             ) { matrix ->
                 // Top-left
-                vertex(matrix, -size / 2, -size / 2, 0.0f)
+                vertex(matrix, -currentSize / 2, -currentSize / 2, 0.0f)
                     .texture(0.0f, 1.0f)
                     .color(color1.toARGB())
 
                 // Bottom-left
-                vertex(matrix, -size / 2, size / 2, 0.0f)
+                vertex(matrix, -currentSize / 2, currentSize / 2, 0.0f)
                     .texture(0.0f, 0.0f)
                     .color(color1.toARGB())
 
                 // Bottom-right
-                vertex(matrix, size / 2, size / 2, 0.0f)
+                vertex(matrix, currentSize / 2, currentSize / 2, 0.0f)
                     .texture(1.0f, 0.0f)
                     .color(color2.toARGB())
 
                 // Top-right
-                vertex(matrix, size / 2, -size / 2, 0.0f)
+                vertex(matrix, currentSize / 2, -currentSize / 2, 0.0f)
                     .texture(1.0f, 1.0f)
                     .color(color2.toARGB())
             }
         }
-}
+
+    }
 
     inner class Circle(module: ClientModule) : WorldTargetRenderAppearance("GlowingCircle") {
         override val parent: ChoiceConfigurable<*>
@@ -594,6 +591,7 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
         override fun getHeight(entity: Entity, partialTicks: Float): Double {
             return offset.toDouble()
         }
+
     }
 
     inner class TopHeight(private val choiceConfigurable: ChoiceConfigurable<*>) : HeightMode("Top") {
@@ -603,6 +601,10 @@ class WorldTargetRenderer(module: ClientModule) : TargetRenderer<WorldRenderEnvi
         val offset by float("Offset", 0f, -1f..1f)
         override fun getHeight(entity: Entity, partialTicks: Float) = entity.box.maxY - entity.box.minY + offset
     }
+
+    // Lets the user chose the height relative to the entity's height
+    // Use 1 for it to always be at the top of the entity
+    // Use 0 for it to always be at the feet of the entity
 
     inner class RelativeHeight(private val choiceConfigurable: ChoiceConfigurable<*>) : HeightMode("Relative") {
         override val parent: ChoiceConfigurable<*>
@@ -686,8 +688,7 @@ class OverlayTargetRenderer(module: ClientModule) : TargetRenderer<GUIRenderEnvi
                 withColor(color.withAlpha((color.a * alphaFactor).toInt())) {
                     drawCustomMesh(
                         VertexFormat.DrawMode.TRIANGLE_STRIP,
-                        VertexFormats.POSITION,
-                        ShaderProgramKeys.POSITION
+                        VertexInputType.Pos,
                     ) {
                         vertex(it, screenPos.x - 5 * size, screenPos.y - 10 * size, 1f)
                         vertex(it, screenPos.x, screenPos.y, 1f)
@@ -723,4 +724,6 @@ sealed class HeightMode(name: String) : Choice(name) {
 
 sealed class HeightWithGlow(name: String) : HeightMode(name) {
     open fun getGlowHeight(entity: Entity, partialTicks: Float): Double = 0.0
+
 }
+

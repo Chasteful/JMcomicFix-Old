@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.interfaces.InputAddition
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.block.*
 import net.ccbluex.liquidbounce.utils.client.*
+import net.ccbluex.liquidbounce.utils.item.getEnchantment
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.ccbluex.liquidbounce.utils.math.plus
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
@@ -36,6 +37,7 @@ import net.minecraft.block.EntityShapeContext
 import net.minecraft.block.ShapeContext
 import net.minecraft.client.input.Input
 import net.minecraft.client.network.ClientPlayerEntity
+import net.minecraft.enchantment.Enchantments
 import net.minecraft.entity.Entity
 import net.minecraft.entity.EquipmentSlot
 import net.minecraft.entity.LivingEntity
@@ -643,7 +645,7 @@ fun ClientPlayerEntity.getFeetBlockPos(): BlockPos {
     )
 }
 fun ClientPlayerEntity.canSeeEntity(entity: Entity, samples: Int = 5): Boolean {
-    val eyePos = this.eyePos
+    val cameraPos = mc.gameRenderer.camera.pos
     val box = entity.boundingBox
     val stepX = (box.maxX - box.minX) / (samples - 1).coerceAtLeast(1)
     val stepY = (box.maxY - box.minY) / (samples - 1).coerceAtLeast(1)
@@ -652,7 +654,12 @@ fun ClientPlayerEntity.canSeeEntity(entity: Entity, samples: Int = 5): Boolean {
     fun canSeeAt(i: Int, j: Int, k: Int): Boolean {
         val target = Vec3d(box.minX + i * stepX, box.minY + j * stepY, box.minZ + k * stepZ)
         val result = world.raycast(
-            RaycastContext(eyePos, target, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, entity)
+            RaycastContext(
+                cameraPos,
+                target,
+                RaycastContext.ShapeType.COLLIDER,
+                RaycastContext.FluidHandling.NONE, entity
+            )
         )
         return result.type == HitResult.Type.MISS ||
             (result is BlockHitResult && world.getBlockState(result.blockPos).let {
@@ -667,8 +674,8 @@ fun ClientPlayerEntity.canSeeEntity(entity: Entity, samples: Int = 5): Boolean {
     }
 }
 
-fun isInVoid(pos: Vec3d, voidDistance: Int = -64, checkOnGround: Boolean = true): Boolean {
-    if (checkOnGround && player.isOnGround) return false
+fun isInVoid(pos: Vec3d, considerGround: Boolean = true): Boolean {
+    if (considerGround && player.isOnGround) return false
 
     val xRange = mutableListOf(0)
     val zRange = mutableListOf(0)
@@ -689,7 +696,7 @@ fun isInVoid(pos: Vec3d, voidDistance: Int = -64, checkOnGround: Boolean = true)
 
     for (xOffset in xRange) {
         for (zOffset in zRange) {
-            for (y in topY downTo voidDistance) {
+            for (y in topY downTo -64) {
                 val blockPos = BlockPos(pos.x.toInt() + xOffset, y, pos.z.toInt() + zOffset)
                 val state = blockPos.getState()
                 if (state != null && !state.isAir) return false
@@ -734,3 +741,13 @@ fun hasSolidBlockBelow(): Boolean {
 val LivingEntity.wouldBlockHit
     get() = !isOlderThanOrEqual1_8 &&
         this.blockedByShield(world.damageSources.playerAttack(player))
+
+/**
+ * @see <a href="https://minecraft.fandom.com/wiki/Magma_Block#Damage">Magma Block — Damage</a>
+ */
+val ClientPlayerEntity.immuneToMagmaBlocks
+    get() = this.hasStatusEffect(StatusEffects.FIRE_RESISTANCE)
+        || (this.getStatusEffect(StatusEffects.RESISTANCE)?.amplifier ?: -1) >= 4
+        || this.isCreative
+        || this.isSpectator
+        || this.getEquippedStack(EquipmentSlot.FEET).getEnchantment(Enchantments.FROST_WALKER) > 0

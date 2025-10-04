@@ -20,18 +20,34 @@
      on:mouseleave={() => hovered = false}
      out:fly|global={{duration: 400, x: -500, delay: index * 100, easing: backIn}}
 >
-
-    <div class="button-content">
-        <div class="icon">
-            <img alt={icon} draggable="false" src="img/menu/icon-{icon}.svg" transition:fade={{duration: 200}}>
+    <div class="glass-content">
+        <div class="button-content">
+            <div class="icon">
+                <img alt={icon} draggable="false" src="img/menu/icon-{icon}.svg" transition:fade={{duration: 200}}>
+            </div>
+            <div class="title">{title}</div>
         </div>
-        <div class="title">{title}</div>
+
     </div>
+    <div class="glass-filter"></div>
+    <div class="glass-overlay"></div>
+    <div class="glass-specular"></div>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+        <filter id="lensFilter" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox">
+            <feComponentTransfer in="SourceAlpha" result="alpha">
+                <feFuncA type="identity" />
+            </feComponentTransfer>
+            <feGaussianBlur in="alpha" stdDeviation="50" result="blur" />
+            <feDisplacementMap in="SourceGraphic" in2="blur" scale="40" xChannelSelector="A" yChannelSelector="A" />
+        </filter>
+    </svg>
 
     <div class="wrapped-content">
         <slot parentHovered={hovered}/>
     </div>
 </div>
+
+
 
 <style lang="scss">
   @use "../../../../colors.scss" as *;
@@ -43,11 +59,9 @@
     grid-template-columns: max-content 1fr max-content;
     align-items: center;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
     border-radius: 36px;
+
     z-index: 1;
     text-decoration: none;
     overflow: hidden;
@@ -63,7 +77,6 @@
       background: linear-gradient(to right, rgba(255, 255, 255, 0.1), transparent);
       transform: skewX(45deg) translateX(-10%);
       transition: 0.5s;
-
     }
 
     &:hover::before {
@@ -72,6 +85,38 @@
 
     &:hover {
       transform: scale(1.1);
+    }
+    .glass-filter,
+    .glass-overlay,
+    .glass-specular {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      z-index: 0;
+    }
+
+    .glass-filter {
+      z-index: 0;
+      backdrop-filter: blur(10px);
+      filter: url(#lensFilter) saturate(120%) brightness(1.15);
+    }
+
+    .glass-overlay {
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.1);
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .glass-specular {
+      z-index: 2;
+      box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 0 5px rgba(255, 255, 255, 0.6);
+
+    }
+    .glass-content {
+      position: relative;
+      display: contents;
     }
   }
 

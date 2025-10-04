@@ -39,24 +39,22 @@ import java.util.concurrent.CompletableFuture;
 public abstract class MixinChatInputSuggestor {
     @Shadow
     @Final
-    private TextFieldWidget textField;
+    TextFieldWidget textField;
     @Shadow
     private CompletableFuture<Suggestions> pendingSuggestions;
     @Shadow
     private ParseResults<CommandSource> parse;
     @Shadow
-    @Nullable
-    private ChatInputSuggestor.@Nullable SuggestionWindow window;
-
-    @Shadow
     public abstract void show(boolean narrateFirstSuggestion);
+
+    @Shadow @Nullable private ChatInputSuggestor.@Nullable SuggestionWindow window;
 
     @Inject(method = "refresh", at = @At(value = "INVOKE", target = "Lcom/mojang/brigadier/StringReader;canRead()Z", remap = false), cancellable = true)
     private void injectAutoCompletionB(CallbackInfo ci) {
         if (this.textField.getText().startsWith(CommandManager.Options.INSTANCE.getPrefix())) {
             this.pendingSuggestions = CommandManager.INSTANCE.autoComplete(this.textField.getText(), this.textField.getCursor());
             this.pendingSuggestions.thenRun(() -> {
-                if (this.pendingSuggestions.isDone() && window == null) {
+                if (window == null) {
                     this.show(false);
                 }
             });

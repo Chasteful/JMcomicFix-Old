@@ -1,5 +1,26 @@
+/*
+ * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
+ *
+ * Copyright (c) 2015 - 2025 CCBlueX
+ *
+ * LiquidBounce is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LiquidBounce is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
+ */
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.event.events.PacketEvent
@@ -24,26 +45,29 @@ import net.minecraft.util.math.Vec3d
 import org.apache.commons.lang3.StringUtils
 import kotlin.math.abs
 import kotlin.math.roundToLong
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Module Flag Check.
  *
  * Alerts you about set backs.
  */
-object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arrayOf("FlagDetect")) {
+object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = listOf("FlagDetect")) {
 
     private var chatMessage by boolean("ChatMessage", true)
     private var notification by boolean("Notification", false)
     private var invalidAttributes by boolean("InvalidAttributes", false)
 
     private object ResetFlags : ToggleableConfigurable(this, "ResetFlags", true) {
-        private var afterSeconds by int("After", 30, 1..300, "s")
+
+        private val afterSeconds by int("After", 30, 1..300, "s")
 
         @Suppress("unused")
-        private val repeatable = tickHandler {
-            flagCount = 0
-            waitSeconds(afterSeconds)
+        private val repeatable = tickHandler(Dispatchers.Default) {
+            flagCount.getAndSet(0)
+            delay(afterSeconds.seconds)
         }
+
     }
 
     private object Render : ToggleableConfigurable(this, "Render", true) {
@@ -97,6 +121,7 @@ object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arra
             creationTime = System.currentTimeMillis()
             finished = false
         }
+
     }
 
     init {
@@ -104,13 +129,15 @@ object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arra
         tree(Render)
     }
 
-    private var flagCount = 0
-    private var lastYaw = 0f
-    private var lastPitch = 0f
+    private val flagCount = atomic(0)
+    private var lastYaw = 0F
+    private var lastPitch = 0F
 
     @Suppress("unused")
     private val packetHandler = handler<PacketEvent> { event ->
-        if (player.age <= 25) return@handler
+        if (player.age <= 25) {
+            return@handler
+        }
 
         when (val packet = event.packet) {
             is PlayerPositionLookS2CPacket -> {
@@ -118,7 +145,7 @@ object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arra
                 val deltaYaw = calculateAngleDelta(change.yaw, lastYaw)
                 val deltaPitch = calculateAngleDelta(change.pitch, lastPitch)
 
-                flagCount++
+                flagCount.incrementAndGet()
                 if (deltaYaw >= 90 || deltaPitch >= 90) {
                     alert(AlertReason.FORCEROTATE, "(${deltaYaw.roundToLong()}° | ${deltaPitch.roundToLong()}°)")
                 } else {
@@ -134,26 +161,37 @@ object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arra
             }
 
             is DisconnectS2CPacket -> {
-                flagCount = 0
+                flagCount.getAndSet(0)
             }
         }
     }
 
     @Suppress("unused")
     private val repeatable = tickHandler {
-        if (!invalidAttributes) return@tickHandler
+        if (!invalidAttributes) {
+            return@tickHandler
+        }
 
-        val invalidHealth = player.health <= 0f && player.isAlive
+        val invalidHeath = player.health <= 0f && player.isAlive
         val invalidHunger = player.hungerManager.foodLevel <= 0
 
-        if (!invalidHealth && !invalidHunger) return@tickHandler
+        if (!invalidHeath && !invalidHunger) {
+            return@tickHandler
+        }
 
         val invalidReasons = mutableListOf<String>()
-        if (invalidHealth) invalidReasons.add("Health")
-        if (invalidHunger) invalidReasons.add("Hunger")
+
+        if (invalidHeath) {
+            invalidReasons.add("Health")
+        }
+
+        if (invalidHunger) {
+            invalidReasons.add("Hunger")
+        }
 
         if (invalidReasons.isNotEmpty()) {
-            flagCount++
+            flagCount.incrementAndGet()
+
             val reasonString = invalidReasons.joinToString()
             alert(AlertReason.INVALID, reasonString)
         }
@@ -180,9 +218,11 @@ object ModuleFlagCheck : ClientModule("FlagCheck", Category.MISC, aliases = arra
         return abs(delta)
     }
 
+    @Suppress("SpellCheckingInspection")
     private enum class AlertReason(val key: String) {
         INVALID("invalid"),
         FORCEROTATE("forceRotate"),
         LAGBACK("lagback")
     }
+
 }

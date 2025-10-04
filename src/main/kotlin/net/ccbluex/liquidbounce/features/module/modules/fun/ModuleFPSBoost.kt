@@ -7,7 +7,7 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-object ModuleFPSBoost : ClientModule("FPSBoost", Category.FUN, aliases = arrayOf("FPSSpoof")) {
+object ModuleFPSBoost : ClientModule("FPSBoost", Category.FUN, aliases = listOf("FPSSpoof")) {
 
     private val modes = choices("Mode",
         Static,

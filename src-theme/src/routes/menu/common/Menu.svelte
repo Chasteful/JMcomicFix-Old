@@ -8,7 +8,7 @@
 
     const transitionDuration = 700;
     let ready = false;
-    let showShadow = false;
+
     const noAccountPaths = ["/altmanager", "/disconnected"];
     const noHeaderPaths = ["/lockscreen", "/disconnected", "connecting"];
     const BackgroundPaths = ["lockscreen",];
@@ -17,7 +17,6 @@
     onMount(() => {
         setTimeout(() => {
             ready = true;
-            showShadow = true;
         }, transitionDuration);
     });
     $: showAccount = !noAccountPaths.includes($location);
@@ -29,19 +28,6 @@
 
 <div class="menu-container">
 
-    {#if showShadow}
-        <div class="edge-shadows" transition:fade|global={{ duration: 500 }}>
-            <!-- svelte-ignore element_invalid_self_closing_tag -->
-            <div class="shadow top"/>
-            <!-- svelte-ignore element_invalid_self_closing_tag -->
-            <div class="shadow right"/>
-            <!-- svelte-ignore element_invalid_self_closing_tag -->
-            <!-- svelte-ignore element_invalid_self_closing_tag -->
-            <div class="shadow bottom"/>
-            <!-- svelte-ignore element_invalid_self_closing_tag -->
-            <div class="shadow left"/>
-        </div>
-    {/if}
 
     <div class="menu">
         {#if ready}
@@ -64,60 +50,6 @@
   .menu-container {
     position: relative;
     height: 100%;
-  }
-
-  .edge-shadows {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 10;
-
-    .shadow {
-      position: absolute;
-      background: linear-gradient(
-                      to var(--direction),
-                      rgba(0, 0, 0, 0.15) 0%,
-                      transparent 100%
-      );
-      opacity: 0;
-
-
-      &.top {
-        --direction: bottom;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 20px;
-
-      }
-
-      &.right {
-        --direction: left;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        width: 20px;
-
-      }
-
-      &.bottom {
-        --direction: top;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 20px;
-
-      }
-
-      &.left {
-        --direction: right;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 20px;
-
-      }
-    }
   }
 
   .menu {

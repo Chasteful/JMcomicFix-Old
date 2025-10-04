@@ -4,14 +4,17 @@ package net.ccbluex.liquidbounce.features.module.modules.client
 import net.ccbluex.liquidbounce.config.types.NamedChoice
 import net.ccbluex.liquidbounce.config.types.nesting.Choice
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
+import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.cosmetic.CapeCosmeticsManager
 import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
 import net.minecraft.client.texture.NativeImage
 import net.minecraft.client.texture.NativeImageBackedTexture
 import net.minecraft.util.Identifier
 import java.io.FileInputStream
+import java.util.logging.Logger
 
 object ModuleCapes : ClientModule("Capes", Category.CLIENT, hide = true, state = true) {
 
@@ -48,7 +51,6 @@ object ModuleCapes : ClientModule("Capes", Category.CLIENT, hide = true, state =
         override fun getTexture(): Identifier {
             val selected = image
             if (cachedTexture == null) {
-                // 注册为与资源路径一致的动态图片（保持和 registerAsDynamicImageFromClientResources 行为一致）
                 val newId = "image/capes/${selected.fileName}.png".registerAsDynamicImageFromClientResources()
                 cachedTexture = newId
             }
@@ -98,33 +100,48 @@ object ModuleCapes : ClientModule("Capes", Category.CLIENT, hide = true, state =
         override fun getTexture(): Identifier {
             val file = customImage.absoluteFile.takeIf { it.exists() && it.isFile && it.canRead() }
             if (file == null) {
-                cachedTexture?.let { return it }
-                clearCache()
-                val defaultId = Identifier.of("liquidbounce", "cape-default")
-                cachedNativeImage = NativeImage.read(
-                    javaClass.getResourceAsStream("/resources/liquidbounce/image/capes/JMcomicFix.png")!!
-                )
-                mc.textureManager.registerTexture(defaultId, NativeImageBackedTexture(cachedNativeImage))
-                cachedTexture = defaultId
-                return defaultId
+                return loadDefaultCape()
             }
 
             val path = file.absolutePath
             if (cachedPath != path) {
                 clearCache()
-                FileInputStream(file).use { fis ->
-                    cachedNativeImage = NativeImage.read(fis)
+                try {
+                    val lower = file.name.lowercase()
+                    if (!(lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg"))) {
+                        return loadDefaultCape()
+                    }
+
+                    FileInputStream(file).use { fis ->
+                        cachedNativeImage = NativeImage.read(fis)
+                    }
+                    val id = Identifier.of(
+                        "liquidbounce",
+                        "cape-file-${System.currentTimeMillis().toString(36)}"
+                    )
+                    mc.textureManager.registerTexture(id, NativeImageBackedTexture(cachedNativeImage))
+                    cachedTexture = id
+                    cachedPath = path
+                } catch (e: Exception) {
+                    notification("Capes","Failed: ${e.message}", NotificationEvent.Severity.ERROR)
+                    return loadDefaultCape()
                 }
-                val id = Identifier.of(
-                    "liquidbounce",
-                    "cape-file-${System.currentTimeMillis().toString(36)}"
-                )
-                mc.textureManager.registerTexture(id, NativeImageBackedTexture(cachedNativeImage))
-                cachedTexture = id
-                cachedPath = path
             }
             return cachedTexture!!
         }
+
+        private fun loadDefaultCape(): Identifier {
+            cachedTexture?.let { return it }
+            clearCache()
+            val defaultId = Identifier.of("liquidbounce", "cape-default")
+            cachedNativeImage = NativeImage.read(
+                javaClass.getResourceAsStream("/resources/liquidbounce/image/capes/JMcomicFix.png")!!
+            )
+            mc.textureManager.registerTexture(defaultId, NativeImageBackedTexture(cachedNativeImage))
+            cachedTexture = defaultId
+            return defaultId
+        }
+
     }
 
     private var localCapeIdentifier: Identifier? = null

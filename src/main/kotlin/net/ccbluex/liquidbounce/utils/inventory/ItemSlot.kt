@@ -45,6 +45,33 @@ sealed interface ItemSlot {
     override fun hashCode(): Int
 
     override fun equals(other: Any?): Boolean
+
+    companion object {
+
+        /**
+         * Distance order:
+         * current hand -> offhand -> other hotbar slots -> other slots
+         */
+        @JvmField
+        val PREFER_NEARBY: Comparator<ItemSlot> = Comparator<ItemSlot> { left, right ->
+            val leftIsHotbar = left is HotbarItemSlot
+            val rightIsHotbar = right is HotbarItemSlot
+            when {
+                leftIsHotbar && rightIsHotbar -> HotbarItemSlot.PREFER_NEARBY.compare(left, right)
+                leftIsHotbar -> -1
+                rightIsHotbar -> 1
+                else -> 0
+            }
+        }
+
+        @JvmField
+        val PREFER_FEWER_ITEM: Comparator<ItemSlot> = Comparator<ItemSlot> { left, right ->
+            left.itemStack.count.compareTo(right.itemStack.count)
+        }
+
+        @JvmField
+        val PREFER_MORE_ITEM: Comparator<ItemSlot> = PREFER_FEWER_ITEM.reversed()
+    }
 }
 
 /**

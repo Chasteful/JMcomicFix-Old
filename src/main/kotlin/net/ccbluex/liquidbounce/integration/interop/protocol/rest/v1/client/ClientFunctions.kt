@@ -24,7 +24,7 @@ import io.netty.handler.codec.http.FullHttpResponse
 import net.ccbluex.liquidbounce.features.module.modules.`fun`.ModuleFPSBoost
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.api.services.client.ClientUpdate.update
-import net.ccbluex.jmcomicfix.api.services.client.ClientUpdate.release
+import net.ccbluex.jmcomicfix.api.services.client.ClientUpdate
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.types.FileDialogMode
 import net.ccbluex.liquidbounce.utils.client.inGame
@@ -55,16 +55,17 @@ fun getClientInfo(requestObject: RequestObject) = httpOk(JsonObject().apply {
 })
 
 // GET /api/v1/client/release
+// GET /api/v1/client/release
 @Suppress("UNUSED_PARAMETER")
 fun getRelease(requestObject: RequestObject) = httpOk(JsonObject().apply {
-    val releaseInfo = net.ccbluex.jmcomicfix.api.services.client.ClientApi.getLatestRelease()
+    val releaseInfo = ClientUpdate.release
     if (releaseInfo != null) {
         addProperty("tagName", releaseInfo.tagName)
         addProperty("downloadUrl", releaseInfo.downloadUrl)
         addProperty("publishedAt", releaseInfo.publishedAt.toString())
         addProperty("prerelease", releaseInfo.prerelease)
     } else {
-        addProperty("error", "No release info available")
+        addProperty("error", "No newer release available")
     }
 })
 

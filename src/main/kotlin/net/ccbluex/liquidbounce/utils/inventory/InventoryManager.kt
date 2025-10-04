@@ -22,14 +22,11 @@
 package net.ccbluex.liquidbounce.utils.inventory
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList
-import net.ccbluex.liquidbounce.event.EventListener
-import net.ccbluex.liquidbounce.event.EventManager
+import net.ccbluex.liquidbounce.event.*
 import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.ScheduleInventoryActionEvent
 import net.ccbluex.liquidbounce.event.events.ScreenEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
-import net.ccbluex.liquidbounce.event.handler
-import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.utils.client.*
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
@@ -86,8 +83,8 @@ object InventoryManager : EventListener {
             return@tickHandler
         }
 
-        debugParameter(this, "Inventory Open", isInventoryOpen)
-        debugParameter(this, "Inventory Open Server Side", isInventoryOpenServerSide)
+        debugParameter("Inventory Open") { isInventoryOpen }
+        debugParameter("Inventory Open Server Side") { isInventoryOpenServerSide }
 
         var maximumCloseDelay = 0
 
@@ -122,7 +119,7 @@ object InventoryManager : EventListener {
             // 2. With inventory open required actions
             schedule.sortWith(COMPARATOR_ACTION_CHAIN)
 
-            debugParameter(this, "Schedule Size", schedule.size)
+            debugParameter("Schedule Size") { schedule.size }
 
             // Handle non-inventory open actions first
             for ((scheduleIndex, chained) in schedule.withIndex()) {
@@ -272,8 +269,7 @@ object InventoryManager : EventListener {
 
         if (screen is HandledScreen<*>) {
             debugParameter("Screen Handler Type") {
-                val type = runCatching { screen.screenHandler.type }.getOrNull()
-                type?.let {
+                screen.screenHandler.typeOrNull?.let {
                     Registries.SCREEN_HANDLER.getId(it)
                 }
             }

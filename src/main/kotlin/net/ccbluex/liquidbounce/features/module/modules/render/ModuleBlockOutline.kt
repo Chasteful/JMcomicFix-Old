@@ -36,7 +36,7 @@ import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryData
  *
  * [net.ccbluex.liquidbounce.injection.mixins.minecraft.render.MixinWorldRenderer.cancelBlockOutline]
  */
-object ModuleBlockOutline : ClientModule("BlockOutline", Category.RENDER, aliases = arrayOf("BlockOverlay")) {
+object ModuleBlockOutline : ClientModule("BlockOutline", Category.RENDER, aliases = listOf("BlockOverlay")) {
 
     private val blockHitRenderer = tree(BlockHitRenderer(this))
 

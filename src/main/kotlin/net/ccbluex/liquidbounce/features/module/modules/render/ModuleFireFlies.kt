@@ -9,15 +9,17 @@ import net.ccbluex.liquidbounce.features.module.Category
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.render.utils.RenderUtils
+import net.ccbluex.liquidbounce.render.utils.RenderUtils.getVector3fCameraBillboard
 import net.ccbluex.liquidbounce.utils.client.registerAsDynamicImageFromClientResources
-import net.minecraft.client.gl.ShaderProgramKeys
+import net.ccbluex.liquidbounce.utils.math.generateRandomVelocity
+import net.ccbluex.liquidbounce.utils.math.generateSpawnPosition
 import net.minecraft.client.render.VertexFormat
-import net.minecraft.client.render.VertexFormats
-import java.util.*
+import net.minecraft.util.Identifier
+import org.joml.Vector3f
+import java.io.File
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.math.cos
 import kotlin.math.sin
-
 
 object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
     private val colorMode = choices(this, "ColorMode") {
@@ -30,32 +32,47 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
     }
 
     private val darkImprint by boolean("DarkImprint", true)
-    private val spawnDelay by float("SpawnDelay", 2.0f, 1.0f..10.0f)
-    private val spawnleCount by int("SpawnCount", 16, 10..10000)
+    private val scale by float("Scale", 1.0f, 0.1f..10f)
+    private val spawnDelay by float("SpawnDelay", 1.0f, 1.0f..10.0f)
+    private val spawnleCount by int("SpawnCount", 64, 10..10000)
     private val maxLiveCount by int("MaxLiveCount", 1337, 50..50000)
-    private val maxQuadsPerFrame by int("MaxQuadsPerFrame",5000,5000..100000)
+    private val maxQuadsPerFrame by int("MaxQuadsPerFrame",2333,2000..50000)
+    private val customFile by file("Custom")
 
-    private val fireFliesTexture = "image/firepart.png".registerAsDynamicImageFromClientResources()
+    private var cachedTexture: Identifier? = null
+    private var cachedFile: File? = null
+
+    private val fireFliesTexture: Identifier
+        get() {
+            val file = customFile
+            return if (file.isFile) {
+                if (file != cachedFile) {
+                    cachedTexture = file.inputStream().use { stream ->
+                        stream.registerAsDynamicImageFromClientResources("fireflies")
+                    }
+                    cachedFile = file
+                }
+                cachedTexture!!
+            } else {
+                if (cachedTexture == null || cachedFile != null) {
+                    cachedTexture = "image/firepart.png".registerAsDynamicImageFromClientResources()
+                    cachedFile = null
+                }
+                cachedTexture!!
+            }
+        }
+
     private val particles = ArrayDeque<FireFly>()
 
     private val rand get() = ThreadLocalRandom.current()
     private var spawnTimer = 0f
 
-    private data class FloatVec(var x: Float = 0f, var y: Float = 0f, var z: Float = 0f) {
-        fun setFrom(other: FloatVec) {
-            x = other.x; y = other.y; z = other.z
-        }
-        fun addInplace(vx: Float, vy: Float, vz: Float) {
-            x += vx; y += vy; z += vz
-        }
-    }
-
     private data class FireFly(
-        val pos: FloatVec,
-        val prevPos: FloatVec,
+        val pos: Vector3f,
+        val prevPos: Vector3f,
         val creationTime: Long,
         val maxAlive: Long,
-        val velocity: FloatVec,
+        val velocity: Vector3f,
         val phase: Float = (ThreadLocalRandom.current().nextFloat() * 13f)
     )
 
@@ -67,25 +84,6 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
         particles.clear()
     }
 
-    private fun generateRandomVelocity(): FloatVec {
-        val yaw = rand.nextDouble() * Math.PI * 2.0
-        val speed = (rand.nextDouble() * 0.15 + 0.1).toFloat()
-        val motionX = (-sin(yaw) * speed).toFloat()
-        val motionZ = (cos(yaw) * speed).toFloat()
-        val motionY = (rand.nextDouble() * 0.2 - 0.1).toFloat()
-        return FloatVec(motionX, motionY, motionZ)
-    }
-
-    private fun generateSpawnPosition(): FloatVec {
-        val player = mc.player ?: return FloatVec()
-        val rangeXZ = 10.0
-        val rangeY = 4.0
-        val x = player.x + (rand.nextDouble() - 0.5) * 2.0 * rangeXZ
-        val y = player.y + (rand.nextDouble() - 0.5) * rangeY
-        val z = player.z + (rand.nextDouble() - 0.5) * 2.0 * rangeXZ
-        return FloatVec(x.toFloat(), y.toFloat(), z.toFloat())
-    }
-
     @Suppress("unused")
     private val updateHandler = handler<GameTickEvent> {
         val player = mc.player ?: return@handler
@@ -95,16 +93,16 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
         while (it.hasNext()) {
             val particle = it.next()
 
-            particle.prevPos.setFrom(particle.pos)
+            particle.prevPos.set(particle.pos)
 
-            val vx = particle.velocity.x; val vy = particle.velocity.y; val vz = particle.velocity.z
-            particle.pos.addInplace(vx, vy, vz)
+            particle.pos.add(particle.velocity)
 
             if (rand.nextFloat() < 0.05f) {
-                val nv = generateRandomVelocity()
-                particle.velocity.x = nv.x; particle.velocity.y = nv.y; particle.velocity.z = nv.z
+                val nv = generateRandomVelocity(rand)
+                particle.velocity.set(nv.x, nv.y, nv.z)
             }
         }
+
 
         val playerX = player.x.toFloat(); val playerY = player.y.toFloat(); val playerZ = player.z.toFloat()
         val maxDistance = 25f
@@ -130,12 +128,12 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
             val canSpawn = (maxLiveCount - particles.size).coerceAtLeast(0)
             val spawnCount = spawnleCount.coerceAtMost(canSpawn)
             repeat(spawnCount) {
-                val pos = generateSpawnPosition()
-                val vel = generateRandomVelocity()
+                val pos = generateSpawnPosition(rand)
+                val vel = generateRandomVelocity(rand)
                 particles.addLast(
                     FireFly(
-                        FloatVec(pos.x, pos.y, pos.z),
-                        FloatVec(pos.x, pos.y, pos.z),
+                        Vector3f(pos.x, pos.y, pos.z),
+                        Vector3f(pos.x, pos.y, pos.z),
                         currentTime,
                         6000L,
                         vel
@@ -144,7 +142,6 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
             }
         }
     }
-
 
     @Suppress("unused","LongParameterList")
     private val renderHandler = handler<WorldRenderEvent> { event ->
@@ -162,136 +159,112 @@ object ModuleFireFlies : ClientModule("FireFlies", Category.RENDER) {
                 GlStateManager.SrcFactor.ZERO,
                 GlStateManager.DstFactor.ONE
             )
-            RenderSystem.disableCull()
-            RenderSystem.disableDepthTest()
-
+            RenderSystem.depthMask(false)
             RenderSystem.setShaderTexture(0, fireFliesTexture)
-
+            RenderSystem.enableDepthTest()
             val camera = mc.gameRenderer.camera
             val (color1Base, color2Base) = colorMode.activeChoice.getColors(player)
-            val total = particles.size
-            if (total == 0) {
-                RenderSystem.enableDepthTest()
-                RenderSystem.enableCull()
-                return@renderEnvironmentForWorld
-            }
 
             val time = currentTime.toFloat()
             val maxDistSq = 25.0f * 25.0f
+            val camX = camera.pos.x.toFloat()
+            val camY = camera.pos.y.toFloat()
+            val camZ = camera.pos.z.toFloat()
+            val playerX = player.x.toFloat()
+            val playerY = player.y.toFloat()
+            val playerZ = player.z.toFloat()
 
-            val yawRad = Math.toRadians(camera.yaw.toDouble()).toFloat()
-            val pitchRad = Math.toRadians(camera.pitch.toDouble()).toFloat()
-            val forwardX = (-sin(yawRad.toDouble()) * cos(pitchRad.toDouble())).toFloat()
-            val forwardY = (-sin(pitchRad.toDouble())).toFloat()
-            val forwardZ = (cos(yawRad.toDouble()) * cos(pitchRad.toDouble())).toFloat()
-            val fLen = kotlin.math.sqrt(forwardX * forwardX + forwardY * forwardY + forwardZ * forwardZ)
-            val fx = forwardX / fLen; val fy = forwardY / fLen; val fz = forwardZ / fLen
+            val billboard = getVector3fCameraBillboard()
 
-            val uxw = 0f; val uyw = 1f; val uzw = 0f
-            var rx = fy * uzw - fz * uyw
-            var ry = fz * uxw - fx * uzw
-            var rz = fx * uyw - fy * uxw
-            var rlen = rx*rx + ry*ry + rz*rz
-            if (rlen == 0f) {
-                rx = 1f; ry = 0f; rz = 0f; rlen = 1f
+
+            val blendStep = 128
+            val cycle = (Math.PI.toFloat() * 2f)
+            val sinTable = FloatArray(blendStep) { i ->
+                val angle = (i.toFloat() / blendStep.toFloat()) * cycle
+                ((sin(angle) + 1f) * 0.5f)
             }
-            rlen = kotlin.math.sqrt(rlen)
-            rx /= rlen; ry /= rlen; rz /= rlen
-            var ux = ry * fz - rz * fy
-            var uy = rz * fx - rx * fz
-            var uz = rx * fy - ry * fx
-            val ulen = kotlin.math.sqrt(ux*ux + uy*uy + uz*uz)
-            ux /= ulen; uy /= ulen; uz /= ulen
 
-            val camX = camera.pos.x.toFloat(); val camY = camera.pos.y.toFloat(); val camZ = camera.pos.z.toFloat()
-            val playerX = player.x.toFloat(); val playerY = player.y.toFloat(); val playerZ = player.z.toFloat()
+            val blendLookup = IntArray(blendStep) { i ->
+                val b = color1Base.blend(color2Base, sinTable[i])
+                b.toARGB()
+            }
+            val colors = IntArray(maxQuadsPerFrame)
+            val positions = FloatArray(maxQuadsPerFrame * 3)
+            val sizes = FloatArray(maxQuadsPerFrame)
+            var index = 0
 
+            val itr = particles.iterator()
+            while (itr.hasNext() && index < maxQuadsPerFrame) {
+                val particle = itr.next()
 
-            var rendered = 0
+                val px = particle.prevPos.x
+                val py = particle.prevPos.y
+                val pz = particle.prevPos.z
+                val nx = particle.pos.x
+                val ny = particle.pos.y
+                val nz = particle.pos.z
+                val interpX = px + (nx - px) * partialTicks
+                val interpY = py + (ny - py) * partialTicks
+                val interpZ = pz + (nz - pz) * partialTicks
 
-            drawCustomMesh(
-                VertexFormat.DrawMode.QUADS,
-                VertexFormats.POSITION_TEXTURE_COLOR,
-                ShaderProgramKeys.POSITION_TEX_COLOR
-            ) { mat ->
+                val dx = interpX - playerX
+                val dy = interpY - playerY
+                val dz = interpZ - playerZ
+                val distSq = dx * dx + dy * dy + dz * dz
+                if (distSq > maxDistSq) continue
 
-                fun emitQuadInline(
-                    cx: Float, cy: Float, cz: Float,
-                    halfRx: Float, halfRy: Float, halfRz: Float,
-                    halfUx: Float, halfUy: Float, halfUz: Float,
-                    argb: Int
-                ) {
-                    val v0x = cx - halfRx - halfUx
-                    val v0y = cy - halfRy - halfUy
-                    val v0z = cz - halfRz - halfUz
-                    val v1x = cx + halfRx - halfUx
-                    val v1y = cy + halfRy - halfUy
-                    val v1z = cz + halfRz - halfUz
-                    val v2x = cx + halfRx + halfUx
-                    val v2y = cy + halfRy + halfUy
-                    val v2z = cz + halfRz + halfUz
-                    val v3x = cx - halfRx + halfUx
-                    val v3y = cy - halfRy + halfUy
-                    val v3z = cz - halfRz + halfUz
+                val lifeFrac = ((currentTime - particle.creationTime)/ particle.maxAlive.toFloat()).coerceIn(0f, 1f)
+                val progress = 1f - lifeFrac
+                if (progress <= 0f) continue
 
-                    vertex(mat, v0x, v0y, v0z).texture(0f, 1f).color(argb)
-                    vertex(mat, v1x, v1y, v1z).texture(1f, 1f).color(argb)
-                    vertex(mat, v2x, v2y, v2z).texture(1f, 0f).color(argb)
-                    vertex(mat, v3x, v3y, v3z).texture(0f, 0f).color(argb)
-                }
+                var phasePos = (time * 0.2f + particle.phase) % cycle
+                if (phasePos < 0f) phasePos += cycle
+                val idx = ((phasePos / cycle) * (blendStep - 1)).toInt()
+                val argb = blendLookup[idx]
+                val rgbOnly = argb and 0x00FFFFFF
+                val blendedAlpha = (argb ushr 24) and 0xFF
+                val alpha = (blendedAlpha * progress).toInt()
+                if (alpha <= 0) continue
 
-                val itr = particles.iterator()
-                while (itr.hasNext()) {
-                    if (rendered >= maxQuadsPerFrame) break
-                    val particle = itr.next()
+                colors[index] = ((alpha and 0xFF) shl 24) or rgbOnly
+                positions[index * 3] = interpX - camX
+                positions[index * 3 + 1] = interpY - camY
+                positions[index * 3 + 2] = interpZ - camZ
+                sizes[index] = (0.1f + 0.05f * (1f - progress)) * scale
+                index++
+            }
 
-                    // interpolate
-                    val px = particle.prevPos.x
-                    val py = particle.prevPos.y
-                    val pz = particle.prevPos.z
-                    val nx = particle.pos.x
-                    val ny = particle.pos.y
-                    val nz = particle.pos.z
-                    val interpX = px + (nx - px) * partialTicks
-                    val interpY = py + (ny - py) * partialTicks
-                    val interpZ = pz + (nz - pz) * partialTicks
+            if (index > 0) {
+                drawCustomMesh(
+                    VertexFormat.DrawMode.QUADS,
+                    VertexInputType.PosTexColor,
+                ) { mat ->
+                    for (i in 0 until index) {
+                        val cx = positions[i * 3]
+                        val cy = positions[i * 3 + 1]
+                        val cz = positions[i * 3 + 2]
+                        val half = sizes[i] * 0.5f
 
-                    val cx = interpX - camX
-                    val cy = interpY - camY
-                    val cz = interpZ - camZ
-
-                    val dx = interpX - playerX
-                    val dy = interpY - playerY
-                    val dz = interpZ - playerZ
-                    val distSq = dx * dx + dy * dy + dz * dz
-                    if (distSq > maxDistSq) continue
-
-                    val progress = 1f - ((currentTime -
-                            particle.creationTime).toFloat() / particle.maxAlive.toFloat()).coerceIn(0f, 1f)
-                    val t = (sin(time * 0.2f + particle.phase) + 1f) * 0.5f
-
-                    val blended = color1Base.blend(color2Base, t)
-                    val rgbOnly = blended.toARGB() and 0x00FFFFFF
-
-                    val alpha = (blended.a * progress).toInt()
-                    if (alpha <= 0) continue
-
-                    val outerArgb = ((alpha and 0xFF) shl 24) or rgbOnly
-
-                    val sizeOuter = 0.1f + 0.05f * (1f - progress)
-
-                    val half = sizeOuter * 0.5f
-                    val hrx = rx * half; val hry = ry * half; val hrz = rz * half
-                    val hux = ux * half; val huy = uy * half; val huz = uz * half
-
-                    emitQuadInline(cx, cy, cz, hrx, hry, hrz, hux, huy, huz, outerArgb)
-                    rendered++
+                        RenderUtils.emitQuadInline(
+                            colors[i],
+                            cx, cy, cz,
+                            mat,
+                            billboard.right.x * half,
+                            billboard.right.y * half,
+                            billboard.right.z * half,
+                            billboard.up.x * half,
+                            billboard.up.y * half,
+                            billboard.up.z * half,
+                            this
+                        )
+                    }
                 }
             }
 
-            RenderSystem.enableDepthTest()
-            RenderSystem.enableCull()
+            RenderSystem.depthMask(true)
+            RenderSystem.disableBlend()
         }
     }
+
 
 }

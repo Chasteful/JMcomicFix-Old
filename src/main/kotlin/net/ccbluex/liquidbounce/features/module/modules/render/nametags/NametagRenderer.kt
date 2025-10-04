@@ -19,7 +19,6 @@
 package net.ccbluex.liquidbounce.features.module.modules.render.nametags
 
 import com.mojang.blaze3d.systems.RenderSystem
-import kotlin.math.hypot
 import net.ccbluex.liquidbounce.render.*
 import net.ccbluex.liquidbounce.render.engine.font.FontRendererBuffers
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
@@ -32,11 +31,11 @@ import net.minecraft.entity.LivingEntity
 import net.minecraft.item.ItemStack
 import net.minecraft.util.math.Vec3d
 import org.lwjgl.opengl.GL11
+import kotlin.math.hypot
 
 private const val NAMETAG_PADDING: Int = 5
 private const val ITEM_SIZE: Int = 20
 
-@Suppress("MagicNumber")
 class NametagRenderer {
 
     private val quadBuffers =
@@ -85,7 +84,6 @@ class NametagRenderer {
         }
     }
 
-
     fun RenderEnvironment.drawNametag(nametag: Nametag, pos: Vec3) {
         val fontSize = FontManager.DEFAULT_FONT_SIZE
         val scale = getNametagScale(nametag.entity, ModuleNametags.scaleMode, ModuleNametags.scale)
@@ -110,6 +108,7 @@ class NametagRenderer {
 
         val q1 = Vec3(-0.1f * fontSize, ModuleNametags.fontRenderer.height * -0.1f, 0f)
         val q2 = Vec3(x + 0.2f * fontSize, ModuleNametags.fontRenderer.height * 1.1f, 0f)
+
         if (NametagShowOptions.BACKGROUND.isShowing()) {
             quadBuffers.drawQuad(this@drawNametag, q1, q2)
         }
@@ -180,7 +179,6 @@ class NametagRenderer {
             if (itemInfo) {
                 dc.drawStackOverlay(mc.textRenderer, itemStack, 0, 0)
             }
-            dc.matrices.pop()
         }
         dc.matrices.pop()
     }
