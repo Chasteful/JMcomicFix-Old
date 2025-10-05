@@ -734,7 +734,6 @@
   "liquidbounce.module.suicide.description": "我有憂鬱症。",
   "liquidbounce.module.autoEz.description": "自動扣字。",
   "liquidbounce.module.godMode.description": "無效化所有攻擊，僅在無反作弊的情況下有效。",
-  "liquidbounce.module.auroraAntiCheat.description": "基於數據分析的簡單客戶端反作弊 - 半成品。",
   "liquidbounce.module.clientTitle.description": "允許你自訂客戶端視窗的標題。",
   "liquidbounce.module.autoSwap.description": "切換副手為金蘋果或投擲物。",
   "liquidbounce.module.autoSex.description": "性騷擾其他玩家。",

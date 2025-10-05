@@ -159,7 +159,7 @@
         );
     }
 
-    async function applyPanelConfig(config: PanelConfig, saveHistory = false) {
+    function applyPanelConfig(config: PanelConfig, saveHistory = false) {
         if (saveHistory) {
             pushUndoState();
         }
@@ -169,15 +169,16 @@
             zIndex: config.zIndex === 0 ? 0 : ++$maxPanelZIndex
         });
 
-        await tick();
         fixPosition();
-        await savePanelConfig();
+        savePanelConfig();
 
-        await tick();
-        if (modulesElement) {
-            modulesElement.scrollTop = panelConfig.scrollTop;
-        }
+        tick().then(() => {
+            if (modulesElement) {
+                modulesElement.scrollTop = panelConfig.scrollTop;
+            }
+        });
     }
+
 
 
     function pushUndoState() {

@@ -874,7 +874,6 @@
   "liquidbounce.module.suicide.description": "うつ病を患っています。",
   "liquidbounce.module.autoEz.description": "自動でメッセージを送信します。",
   "liquidbounce.module.godMode.description": "すべての攻撃を無効化します。アンチチートがない場合にのみ機能します。",
-  "liquidbounce.module.auroraAntiCheat.description": "データ分析に基づく簡易クライアントアンチチート（未完成）。",
   "liquidbounce.module.clientTitle.description": "クライアントウィンドウのタイトルをカスタマイズできます。",
   "liquidbounce.module.autoSwap.description": "オフハンドをゴールデンアップルや投擲物に切り替えます。",
   "liquidbounce.module.autoSex.description": "他のプレイヤーをセクハラします。",

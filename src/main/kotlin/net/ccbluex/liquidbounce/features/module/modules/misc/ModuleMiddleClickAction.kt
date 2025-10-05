@@ -35,6 +35,7 @@ import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.inventory.Slots
+import net.ccbluex.liquidbounce.utils.inventory.useHotbarSlotOrOffhand
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.Items
 import net.minecraft.util.ActionResult
@@ -87,7 +88,7 @@ object ModuleMiddleClickAction : ClientModule(
                 wasPressed = true
             } else if (wasPressed) { // the key was released
                 Slots.OffhandWithHotbar.findSlot(Items.ENDER_PEARL)?.let {
-                    mc.interactionManager?.interactItem(player, Hand.MAIN_HAND)
+                    useHotbarSlotOrOffhand(it, slotResetDelay)
                 }
                 EventManager.callEvent(
                     PlayerInteractedItemEvent(

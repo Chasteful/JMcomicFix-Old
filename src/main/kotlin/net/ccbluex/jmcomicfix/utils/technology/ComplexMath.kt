@@ -1,4 +1,4 @@
-@file:Suppress("TooManyFunctions", "unused")
+@file:Suppress("TooManyFunctions")
 package net.ccbluex.jmcomicfix.utils.technology
 
 import net.ccbluex.jmcomicfix.utils.tuples.Pair
@@ -9,8 +9,6 @@ import java.text.DecimalFormat
 import kotlin.math.*
 
 object ComplexMath {
-    val EXPANDER = 2.0.pow(24.0)
-
     fun getAngleInDegrees(delta: Vec2i): Double {
         val angleInRadians = atan2(delta.x.toDouble(), delta.y.toDouble())
         var angleInDegrees = Math.toDegrees(angleInRadians)
@@ -101,10 +99,6 @@ object ComplexMath {
         return result
     }
 
-    fun toList(i: FloatArray): List<Float> {
-        return i.toList()
-    }
-
     fun getShannonEntropy(data: Collection<Number>): Double {
         val total = data.size.toDouble()
         val freqMap = data.groupingBy { it.toDouble() }.eachCount()
@@ -119,10 +113,6 @@ object ComplexMath {
 
     fun magnitude(x: Double, y: Double, z: Double): Double {
         return sqrt(x * x + y * y + z * z)
-    }
-
-    fun trim(x: Double): String {
-        return DecimalFormat("#.##").format(x)
     }
 
     fun distanceBetweenAngles(alpha: Float, beta: Float): Float {
@@ -201,11 +191,6 @@ object ComplexMath {
         val efficiencyFirst = count * (count + 1.0) / ((count - 1.0) * (count - 2.0) * (count - 3.0))
         val efficiencySecond = 3.0 * (count - 1.0).pow(2) / ((count - 2.0) * (count - 3.0))
         return efficiencyFirst * (varianceSquared / (variance / count).pow(2)) - efficiencySecond
-    }
-
-    fun round(value: Double, places: Int): Double {
-        require(places >= 0) { "Places must be non-negative" }
-        return BigDecimal(value).setScale(places, RoundingMode.HALF_UP).toDouble()
     }
 
     fun getMode(array: Collection<Number>): Int {

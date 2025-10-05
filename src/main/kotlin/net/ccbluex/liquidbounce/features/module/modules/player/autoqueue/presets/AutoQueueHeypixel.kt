@@ -19,6 +19,7 @@ object AutoQueueHeypixel : Choice("HeypixelSW") {
 
     @Suppress("unused")
     private val chatReceiveEventHandler = sequenceHandler<ChatReceiveEvent> { event ->
+        val player = mc.player ?: return@sequenceHandler
         val message = event.message
 
         if (event.type != ChatReceiveEvent.ChatType.GAME_MESSAGE) {
@@ -35,6 +36,7 @@ object AutoQueueHeypixel : Choice("HeypixelSW") {
 
     @Suppress("unused")
     private val tickHandler = tickHandler {
+        val player = mc.player ?: return@tickHandler
         if (spectatorCheck) {
             tickUntil { player.isSpectator || player.abilities.flying }
             delay((delay * 1000f).toLong())

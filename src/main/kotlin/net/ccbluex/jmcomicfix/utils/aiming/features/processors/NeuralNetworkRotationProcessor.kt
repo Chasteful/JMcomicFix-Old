@@ -47,8 +47,8 @@ class NeuralNetworkRotationProcessor(owner: EventListener? = null) : ToggleableC
         val adjustments = neuralNetwork.predict(yawDiff, pitchDiff, distanceFactor)
 
         return Rotation(
-            targetRotation.yaw + (adjustments[0].toFloat() * 0),
-            targetRotation.pitch + (adjustments[1].toFloat() * 0)
+            targetRotation.yaw + (adjustments[0].toFloat()),
+            targetRotation.pitch + (adjustments[1].toFloat())
         )
     }
 

@@ -46,6 +46,8 @@ object ModuleInventoryCleaner : ClientModule("InventoryCleaner", Category.PLAYER
     private val maxArrows by int("MaximumArrows", 128, 0..2500)
     private val maxThrowables by int("MaximumThrowables", 64, 0..800)
     private val maxFoods by int("MaximumFoodPoints", 200, 0..2000)
+    private val maxWaterBuckets by int("MaximumWaterBuckets", 2, 0..16)
+    private val maxLavaBuckets by int("MaximumLavaBuckets", 2, 0..16)
 
     private val isGreedy by boolean("Greedy", true)
     internal object OnlyGaming : ToggleableConfigurable(ModuleInventoryCleaner, "OnlyGaming", true) {
@@ -102,12 +104,16 @@ object ModuleInventoryCleaner : ClientModule("InventoryCleaner", Category.PLAYER
                     Pair(ItemSortChoice.BLOCK.category!!, maxBlocks),
                     Pair(ItemSortChoice.THROWABLES.category!!, maxThrowables),
                     Pair(ItemCategory(ItemType.ARROW, 0), maxArrows),
+                    Pair(ItemCategory(ItemType.BUCKET, 0), maxWaterBuckets),
+                    Pair(ItemCategory(ItemType.BUCKET, 1), maxLavaBuckets),
+
                 ),
                 desiredValuePerFunction = hashMapOf(
                     Pair(ItemFunction.FOOD, maxFoods),
                     Pair(ItemFunction.WEAPON_LIKE, 1),
                 )
             )
+
 
             return CleanupPlanPlacementTemplate(
                 slotTargets,

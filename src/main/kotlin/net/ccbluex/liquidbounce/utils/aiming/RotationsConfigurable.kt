@@ -1,6 +1,5 @@
 package net.ccbluex.liquidbounce.utils.aiming
 
-import net.ccbluex.jmcomicfix.utils.aiming.features.processors.NeuralNetworkRotationProcessor
 import net.ccbluex.liquidbounce.config.types.nesting.Configurable
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
@@ -36,7 +35,6 @@ open class RotationsConfigurable(
             if (combatSpecific) MinaraiAngleSmooth(it, interpolationAngleSmooth ?: linearAngleSmooth) else null
         ).toTypedArray()
     }
-    private var neuralNetwork = NeuralNetworkRotationProcessor(owner).takeIf { combatSpecific }?.also { tree(it) }
     private var shortStop = ShortStopRotationProcessor(owner).takeIf { combatSpecific }?.also { tree(it) }
     private val fail = FailRotationProcessor(owner).takeIf { combatSpecific }?.also { tree(it) }
 
@@ -56,7 +54,6 @@ open class RotationsConfigurable(
             angleSmooth.activeChoice,
             fail.takeIf { it?.running == true },
             shortStop.takeIf { it?.running == true },
-            neuralNetwork.takeIf { it?.running ==true},
         ),
         ticksUntilReset,
         resetThreshold,

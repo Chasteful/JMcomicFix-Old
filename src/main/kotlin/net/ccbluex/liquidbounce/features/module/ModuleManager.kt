@@ -106,7 +106,6 @@ import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.input.InputBind
-import net.ccbluex.liquidbounce.features.module.modules.misc.anticheat.ModuleAntiCheat
 import net.ccbluex.liquidbounce.features.module.modules.movement.parkour.ModuleParkour
 import net.ccbluex.liquidbounce.features.module.modules.player.ModuleAutoStuck
 import net.ccbluex.liquidbounce.features.module.modules.player.delayblink.ModuleDelayBlink
@@ -325,7 +324,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleNoBooks,
             ModuleAutoReport,
             ModuleBetterTitle,
-            ModuleAntiCheat,
             ModuleAutoEZ,
             ModuleClientTitle,
             ModuleAutoF5,

@@ -14,13 +14,12 @@ internal object NoFallAACv4 : Choice("AACv4") {
 
     @Suppress("unused")
     private val packetHandler = handler<PacketEvent> { event ->
-        when {
-
-            event.packet is EntityVelocityUpdateS2CPacket && player.fallDistance > 1.8f -> {
+        when (event.packet) {
+            is EntityVelocityUpdateS2CPacket if player.fallDistance > 1.8f -> {
                 event.packet.velocityY = (event.packet.velocityY * -0.1).toInt()
             }
 
-            event.packet is PlayerMoveC2SPacket && player.fallDistance > 1.6f -> {
+            is PlayerMoveC2SPacket if player.fallDistance > 1.6f -> {
                 event.packet.onGround = true
             }
         }

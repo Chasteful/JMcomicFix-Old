@@ -189,6 +189,7 @@ object ModuleAutoClicker : ClientModule("AutoClicker", Category.COMBAT, aliases 
         Items.GREEN_DYE,
         Items.GRAY_DYE,
         Items.PINK_DYE,
+        Items.SLIME_BALL,
     )
 
     init {

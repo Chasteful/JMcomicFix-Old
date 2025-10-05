@@ -56,10 +56,10 @@ fun raytraceBlockRotation(
     range: Double,
     wallsRange: Double,
 ): RotationWithVector? {
-    val offset = Vec3d(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
+    val offset = Vec3d.of(pos)
     val shape = state.getOutlineShape(world, pos, ShapeContext.of(player))
 
-    for (box in shape.boundingBoxes.sortedBy { -(it.maxX - it.minX) * (it.maxY - it.minY) * (it.maxZ - it.minZ) }) {
+    for (box in shape.boundingBoxes.sortedByDescending { it.size }) {
         return raytraceBox(
             eyes,
             box.offset(offset),
@@ -203,7 +203,7 @@ class BlockVisibilityPredicate(private val expectedTarget: BlockPos) : Visibilit
     }
 }
 
-class BoxVisibilityPredicate : VisibilityPredicate {
+object BoxVisibilityPredicate : VisibilityPredicate {
     override fun isVisible(
         eyesPos: Vec3d,
         targetSpot: Vec3d,
@@ -240,12 +240,10 @@ fun raytraceBlockSide(
     shapeContext: ShapeContext
 ): RotationWithVector? {
     pos.getState()?.getOutlineShape(world, pos, shapeContext)?.let { shape ->
-        val sortedShapes = shape.boundingBoxes.sortedBy {
-            -(it.maxX - it.minX) * (it.maxY - it.minY) * (it.maxZ - it.minZ)
-        }
+        val sortedShapes = shape.boundingBoxes.sortedByDescending { it.size }
         for (boxShape in sortedShapes) {
             val box = boxShape.offset(pos)
-            val visibilityPredicate = BoxVisibilityPredicate()
+            val visibilityPredicate = BoxVisibilityPredicate
 
             val bestRotationTracker = BestRotationTracker(LeastDifferencePreference.LEAST_DISTANCE_TO_CURRENT_ROTATION)
 
@@ -268,7 +266,7 @@ fun raytraceBlockSide(
                 val spot = pointOnBlockSide(side, a, b, box) + pos.toVec3d()
 
                 ModuleDebug.debugGeometry(ModuleAutoFarm, "deddee", ModuleDebug.DebuggedPoint(spot, Color4b.RED))
-                considerSpot(
+                bestRotationTracker.considerSpot(
                     spot,
                     box,
                     eyes,
@@ -276,7 +274,6 @@ fun raytraceBlockSide(
                     rangeSquared,
                     wallsRangeSquared,
                     spot,
-                    bestRotationTracker,
                 )
             }
 
@@ -303,7 +300,7 @@ fun raytraceBox(
     box: Box,
     range: Double,
     wallsRange: Double,
-    visibilityPredicate: VisibilityPredicate = BoxVisibilityPredicate(),
+    visibilityPredicate: VisibilityPredicate = BoxVisibilityPredicate,
     rotationPreference: RotationPreference = LeastDifferencePreference.LEAST_DISTANCE_TO_CURRENT_ROTATION,
     futureTarget: Box? = null,
     prioritizeVisible: Boolean = true
@@ -340,7 +337,7 @@ fun raytraceBox(
     // since it finds the nearest spot within the requested range.
     val nearestSpot = getNearestPoint(eyes, box)
 
-    considerSpot(
+    bestRotationTracker.considerSpot(
         preferredSpot,
         box,
         eyes,
@@ -348,11 +345,10 @@ fun raytraceBox(
         rangeSquared,
         wallsRangeSquared,
         nearestSpot,
-        bestRotationTracker,
     )
 
     scanBoxPoints(eyes, box) { spot ->
-        considerSpot(
+        bestRotationTracker.considerSpot(
             spot,
             box,
             eyes,
@@ -360,7 +356,6 @@ fun raytraceBox(
             rangeSquared,
             wallsRangeSquared,
             spot,
-            bestRotationTracker,
         )
     }
 
@@ -368,15 +363,14 @@ fun raytraceBox(
 }
 
 @Suppress("detekt:complexity.LongParameterList")
-private fun considerSpot(
+private fun BestRotationTracker.considerSpot(
     preferredSpot: Vec3d,
     box: Box,
     eyes: Vec3d,
     visibilityPredicate: VisibilityPredicate,
     rangeSquared: Double,
     wallsRangeSquared: Double,
-    spot: Vec3d,
-    bestRotationTracker: BestRotationTracker
+    spot: Vec3d
 ) {
     // Elongate the line so we have no issues with fp-precision
     val raycastTarget = (preferredSpot - eyes) * 2.0 + eyes
@@ -397,7 +391,7 @@ private fun considerSpot(
 
     val rotation = Rotation.lookingAt(point = spot, from = eyes)
 
-    bestRotationTracker.considerRotation(RotationWithVector(rotation, spot), visible)
+    considerRotation(RotationWithVector(rotation, spot), visible)
 }
 
 /**
@@ -457,7 +451,7 @@ private inline fun Box.scanBoxPoints3D(
     step: Double,
     fn: (Vec3d) -> Unit,
 ) {
-    forEach3D(Vec3d(0.1, 0.1, 0.1), Vec3d(0.9, 0.9, 0.9), step) { x, y, z ->
+    forEach3D(Vec3d(0.05, 0.05, 0.05), Vec3d(0.95, 0.95, 0.95), step) { x, y, z ->
         val vec3 = Vec3d(
             minX + (maxX - minX) * x,
             minY + (maxY - minY) * y,

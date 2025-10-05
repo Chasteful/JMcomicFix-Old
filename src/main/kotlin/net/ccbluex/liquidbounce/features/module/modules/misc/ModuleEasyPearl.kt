@@ -105,6 +105,10 @@ object ModuleEasyPearl :
     @Suppress("unused")
     private val rotationHandler = handler<RotationUpdateEvent> {
         if (ModuleStuck.enabled) return@handler
+
+        if (!isHoldingPearl() ) {
+            return@handler
+        }
         /**
          * handler for rotation update event,and rotate to the target rotation
          */
