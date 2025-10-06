@@ -160,6 +160,10 @@ open class ClientModule(
             }
         }
 
+        if (!inGame) {
+            return state
+        }
+
         calledSinceStartup = true
 
         val state = super.onToggled(state)

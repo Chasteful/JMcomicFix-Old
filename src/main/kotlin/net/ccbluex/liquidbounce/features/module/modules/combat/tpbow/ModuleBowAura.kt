@@ -28,7 +28,7 @@ import net.minecraft.util.math.Vec3i
 import kotlin.math.*
 
 @Suppress("TooManyFunctions")
-object ModuleBowAura : ClientModule("TPBowAura", Category.COMBAT, disableOnQuit = true) {
+object ModuleBowAura : ClientModule("TpBowAura", Category.COMBAT, disableOnQuit = true) {
 
     private val mode by enumChoice("Mode", Mode.VELOCITY_1_9, Mode.entries.toSet())
     private val packetMode by enumChoice("PacketMode", PacketMode.C06, PacketMode.entries.toSet())

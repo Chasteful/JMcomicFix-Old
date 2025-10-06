@@ -22,6 +22,7 @@ import net.ccbluex.liquidbounce.features.module.modules.misc.antibot.ModuleAntiB
 import net.ccbluex.liquidbounce.utils.client.*
 import net.ccbluex.liquidbounce.utils.combat.EntityTaggingManager
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
+import net.ccbluex.liquidbounce.utils.entity.hasHealthScoreboard
 import net.ccbluex.liquidbounce.utils.entity.ping
 import net.minecraft.entity.Entity
 import net.minecraft.entity.LivingEntity
@@ -115,7 +116,8 @@ class NametagTextFormatter(private val entity: Entity) {
                 return regular("")
             }
 
-            val actualHealth = entity.getActualHealth().toInt()
+            val actualHealth = (entity.getActualHealth() +
+                if (entity.hasHealthScoreboard()) 0f else entity.absorptionAmount).toInt()
 
             val healthColor = when {
                 // Perhaps you should modify the values here

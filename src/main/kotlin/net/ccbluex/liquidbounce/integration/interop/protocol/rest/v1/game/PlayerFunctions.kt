@@ -31,6 +31,7 @@ import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.Player
 import net.ccbluex.liquidbounce.utils.client.interaction
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.entity.getActualHealth
+import net.ccbluex.liquidbounce.utils.entity.hasHealthScoreboard
 import net.ccbluex.liquidbounce.utils.entity.netherPosition
 import net.ccbluex.liquidbounce.utils.entity.ping
 import net.ccbluex.liquidbounce.utils.session.GameWins
@@ -129,7 +130,7 @@ data class PlayerData(
             player.health.fixNaN(),
             player.getActualHealth().fixNaN(),
             player.maxHealth.fixNaN(),
-            player.absorptionAmount.fixNaN(),
+            if (player.hasHealthScoreboard()) 0f else player.absorptionAmount.fixNaN(),
             player.armor.coerceAtMost(20),
             min(player.hungerManager.foodLevel, 20),
             player.air,

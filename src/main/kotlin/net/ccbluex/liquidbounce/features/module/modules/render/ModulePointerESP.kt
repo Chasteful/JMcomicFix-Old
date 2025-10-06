@@ -3,7 +3,6 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 import com.mojang.blaze3d.systems.RenderSystem
 import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.types.nesting.ChoiceConfigurable
-import net.ccbluex.liquidbounce.config.types.nesting.ToggleableConfigurable
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.Category
@@ -22,6 +21,7 @@ import net.minecraft.client.render.VertexFormat
 import net.minecraft.entity.LivingEntity
 import net.minecraft.util.Identifier
 import net.minecraft.util.math.MathHelper
+import net.minecraft.util.math.Vec3d
 import org.joml.Quaternionf
 import java.awt.Color
 import kotlin.math.atan2
@@ -34,12 +34,6 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
             GenericEntityHealthColorMode(it),
             GenericStaticColorMode(it, Color4b.WHITE)
         )
-    }
-
-    private object ImageOffset : ToggleableConfigurable(this, "Offset", false) {
-        val offsetX by float("OffsetX", 0f, -1f..1f)
-        val offsetY by float("OffsetY", 0.3f, -1f..1f)
-        val offsetZ by float("OffsetZ", 0f, -1f..1f)
     }
 
     private object DistanceColor : GenericColorMode<LivingEntity>("Distance") {
@@ -62,16 +56,15 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
         }
     }
 
-    init {
-        tree(ImageOffset)
-    }
-    private val renderRadius by int("RenderRadius", 200, 50..500)
-    private val pointerSize by float("PointerSize", 1f, 0.5f..1.5f)
-    private val pointerAlpha by float("PointerAlpha", 0.75f, 0f..1f)
+    private val renderRadius by int("Radius", 200, 50..500)
+    private val pointerSize by float("Size", 1f, 0.5f..1.5f)
+    private val pointerAlpha by float("Alpha", 0.75f, 0f..1f)
     private val pitchLimit by floatRange("PitchLimit", 30f..90f, 0f..90f).onChanged {
-        negativePitchLimit = -it.endInclusive..-it.start
+            negativePitchLimit = -it.endInclusive..-it.start
     }
     private val smoothingFactor by float("SmoothingFactor", 0.25f, 0.1f..0.5f)
+    private val renderOffset by vec3d("RenderOffset", Vec3d.ZERO)
+
 
     private var negativePitchLimit: ClosedFloatingPointRange<Float> = -pitchLimit.endInclusive..-pitchLimit.start
     private val pointerData = mutableMapOf<LivingEntity, Pair<Float, Float>>()
@@ -91,7 +84,9 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
     @Suppress("unused")
     private val renderHandler = handler<OverlayRenderEvent> { event ->
         val matrices = event.context.matrices
-        val pointers = RenderedEntities.mapToArray {
+        val pointers = RenderedEntities
+            .filter { it != player }
+            .mapToArray {
             val diff = it.interpolateCurrentPosition(event.tickDelta) - player.pos
             val rawAngle = atan2(diff.z, diff.x).toFloat().toDegrees()
             val targetAngle = (player.yaw - 90f - rawAngle).let { theta ->
@@ -136,19 +131,15 @@ object ModulePointerESP : ClientModule("PointerESP", Category.RENDER) {
 
             pointers.forEach { p ->
                 matrices.push()
-
-                val offsetX = if (ImageOffset.enabled) ImageOffset.offsetX * window.scaledWidth else 0f
-                val offsetY = if (ImageOffset.enabled) ImageOffset.offsetY * window.scaledHeight else 0f
-                val offsetZ = if (ImageOffset.enabled) ImageOffset.offsetZ * 100f else 0f
                 val scale = (window.scaledWidth.coerceAtMost(window.scaledHeight)) / 1000f
 
                 val adaptiveRadius = renderRadius * scale
                 val adaptiveSize = pointerSize * scale * 10
 
                 matrices.translate(
-                    (cx + offsetX).toDouble(),
-                    (cy + offsetY).toDouble(),
-                    offsetZ.toDouble()
+                    (cx + renderOffset.x),
+                    (cy + renderOffset.y),
+                    renderOffset.z * 100f
                 )
 
                 matrices.multiply(Quaternionf().rotateX(Math.toRadians(p.rotateX.toDouble()).toFloat()))

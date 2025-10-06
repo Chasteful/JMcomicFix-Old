@@ -8,6 +8,8 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 object ModuleFPSBoost : ClientModule("FPSBoost", Category.FUN, aliases = listOf("FPSSpoof")) {
+    override val baseKey: String
+        get() = "liquidbounce.module.fpsBoost"
 
     private val modes = choices("Mode",
         Static,

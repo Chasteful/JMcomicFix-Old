@@ -48,18 +48,36 @@ object CydhranianProjectileAngleCalculator : ProjectileAngleCalculator() {
         val resistanceFactor = trajectoryInfo.drag
         val g = trajectoryInfo.gravity
 
-        return Vec3d(
-            (enemyPosition.x - playerHeadPosition.x) * (resistanceFactor - 1)
-                / (vA * (resistanceFactor.pow(time) - 1)),
+        val lnR = ln(resistanceFactor)
+        val eps = 1e-6
+        val D = if (time < eps) {
+            time * lnR
+        } else {
+            resistanceFactor.pow(time) - 1.0
+        }
 
-            (enemyPosition.y - playerHeadPosition.y) * (resistanceFactor - 1)
-                / (vA * (resistanceFactor.pow(time) - 1)) + g * (resistanceFactor.pow(time)
-                - resistanceFactor * time + time - 1)
-                / (vA * (resistanceFactor - 1) * (resistanceFactor.pow(time) - 1)),
+        val common = (resistanceFactor - 1) / (vA * D)
 
-            (enemyPosition.z - playerHeadPosition.z) * (resistanceFactor - 1)
-                / (vA * (resistanceFactor.pow(time) - 1))
-        )
+        val dx = (enemyPosition.x - playerHeadPosition.x) * common
+        val dz = (enemyPosition.z - playerHeadPosition.z) * common
+
+        val dy1 = (enemyPosition.y - playerHeadPosition.y) * common
+
+        val num2 = if (time < eps) {
+            0.5 * lnR * lnR * time * time
+        } else {
+            resistanceFactor.pow(time) - resistanceFactor * time + time - 1.0
+        }
+        val denom2 = vA * (resistanceFactor - 1) * D
+        val dy2 = if (abs(denom2) > 1e-10) {
+            g * num2 / denom2
+        } else {
+            0.0
+        }
+
+        val dy = dy1 + dy2
+
+        return Vec3d(dx, dy, dz)
     }
 
     private fun getVelocityOnImpact(trajectoryInfo: TrajectoryInfo, ticksPassed: Double, initialDir: Vec3d): Vec3d {
@@ -100,7 +118,7 @@ object CydhranianProjectileAngleCalculator : ProjectileAngleCalculator() {
         val maxTravelTime = distance / trajectoryInfo.initialVelocity * 1.75
 
         // Calculate how long the arrow would need to travel to hit the entity with the given position function.
-        val (ticks, delta) = findFunctionMinimumByBisect(0.0, maxTravelTime) { ticks ->
+        val (ticks, delta) = findFunctionMinimumByBisect(1e-6, maxTravelTime) { ticks ->
             val newLimit = getDirectionByTime(
                 trajectoryInfo,
                 enemyPosition = positionFunction.getPositionInTicks(ticks).add(defaultBoxOffset),

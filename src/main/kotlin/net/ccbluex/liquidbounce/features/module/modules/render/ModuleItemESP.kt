@@ -55,7 +55,7 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
 
     override val baseKey: String
         get() = "liquidbounce.module.itemEsp"
-    private val useInvManager by boolean("UseInvManager", true)
+    private val onlyValuable by boolean("OnlyValuable", true)
     private val modes = choices("Mode", NametagsMode,
         arrayOf(GlowMode, OutlineMode, BoxMode, NametagsMode))
 
@@ -288,7 +288,7 @@ object ModuleItemESP : ClientModule("ItemESP", Category.RENDER) {
     fun shouldRender(entity: Entity?): Boolean {
         if (entity !is ItemEntity) return false
         if (entity.stack.item in filteredItems) return false
-        if (useInvManager && !entity.stack.filterPlanGenerator()) return false
+        if (onlyValuable && !entity.stack.filterPlanGenerator()) return false
         return true
     }
 

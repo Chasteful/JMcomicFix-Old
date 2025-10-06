@@ -9,6 +9,8 @@ import kotlin.math.pow
 @Suppress("UNUSED_PARAMETER")
 object ModuleIQBoost : ClientModule("IQBoost", Category.FUN,
     aliases = listOf("HeTao", "CognitiveEnhancer", "NeuralOptimizer", "IntelligenceQuotientAmplificationMatrix")) {
+    override val baseKey: String
+        get() = "liquidbounce.module.iqBoost"
 
     private val modes = choices(
         "Mode",

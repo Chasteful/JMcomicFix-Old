@@ -1,27 +1,49 @@
+/*
+ * This file is part of LiquidBounce (https://github.com/CCBlueX/LiquidBounce)
+ *
+ * Copyright (c) 2015 - 2025 CCBlueX
+ *
+ * LiquidBounce is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * LiquidBounce is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with LiquidBounce. If not, see <https://www.gnu.org/licenses/>.
+ */
 package net.ccbluex.liquidbounce.features.module.modules.render.nametags
 
 import com.mojang.blaze3d.systems.RenderSystem
 import net.ccbluex.liquidbounce.render.RenderEnvironment
 import net.ccbluex.liquidbounce.render.VertexInputType
 import net.ccbluex.liquidbounce.render.drawCustomMesh
+import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.engine.font.FontRendererBuffers
 import net.ccbluex.liquidbounce.render.engine.font.processor.TextProcessor.ProcessedText
-import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.engine.type.Rect
-import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.item.getEnchantment
 import net.ccbluex.liquidbounce.utils.item.getEnchantmentCount
 import net.ccbluex.liquidbounce.utils.kotlin.LruCache
 import net.minecraft.client.render.VertexFormat.DrawMode
-import net.minecraft.client.resource.language.I18n
 import net.minecraft.enchantment.Enchantment
 import net.minecraft.enchantment.Enchantments
 import net.minecraft.entity.EquipmentSlot
 import net.minecraft.entity.LivingEntity
 import net.minecraft.item.ItemStack
+import net.minecraft.util.Formatting
+import net.minecraft.client.resource.language.I18n
 import net.minecraft.registry.RegistryKey
 import net.minecraft.registry.RegistryKeys
-import net.minecraft.util.Formatting
+import net.ccbluex.liquidbounce.utils.client.mc
+import org.joml.Vector2f
+import org.joml.component1
+import org.joml.component2
+import kotlin.math.hypot
 
 private object EnchantmentDisplayHelper {
     private val enchantmentAbbreviationCache = LruCache<RegistryKey<Enchantment>, String>(100)
@@ -181,7 +203,7 @@ object NametagEnchantmentRenderer {
 
         if (columnData.isNotEmpty()) {
             // Add this position to the drawn areas list
-            ModuleNametags.drawnEnchantmentAreas.add(Pair(worldX, worldY))
+            ModuleNametags.drawnEnchantmentAreas.add(Vector2f(worldX, worldY))
             drawEnchantmentColumns(env, worldX, worldY, fontRenderer, columnData)
         }
     }
@@ -191,10 +213,7 @@ object NametagEnchantmentRenderer {
         val OCCLUSION_THRESHOLD = 2f
 
         return ModuleNametags.drawnEnchantmentAreas.any { (existingX, existingY) ->
-            val distance = Math.sqrt(
-                ((existingX - x) * (existingX - x) +
-                                     (existingY - y) * (existingY - y)).toDouble()).toFloat()
-            distance < OCCLUSION_THRESHOLD
+            hypot(existingX - x, existingY - y) < OCCLUSION_THRESHOLD
         }
     }
 

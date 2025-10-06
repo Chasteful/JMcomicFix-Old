@@ -46,8 +46,8 @@ import net.minecraft.item.Items
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.math.Vec3i
 
-// TODO: Bypass Vanilla Minecraft Item UseOnBlocks Limit
 
+// TODO: Fixing ViaFabricPlus 1.17-1.20.6 Version will break the ItemMixin HookFixRotation.
 internal object NoFallMLG : Choice("MLG") {
     override val parent: ChoiceConfigurable<*>
         get() = ModuleNoFall.modes
@@ -58,16 +58,16 @@ internal object NoFallMLG : Choice("MLG") {
         /**
          * Don't pick up before the lower bound, don't pick up after the upper bound
          */
-        val pickupSpan by intRange("PickupSpan", 150..250, 0..10000, "ms")
+        val pickupSpan by intRange("PickupSpan", 200..1000, 0..10000, "ms")
     }
     private val onlyWeb by boolean("OnlyWeb", false)
     private val rotationsConfigurable = tree(RotationsConfigurable(this))
 
     private var currentTarget: PlacementPlan? = null
-    private val lastPlacements = mutableListOf<Pair<BlockPos, Chronometer>>()
+    private var lastPlacements = mutableListOf<Pair<BlockPos, Chronometer>>()
 
     private val netherItems =
-        setOf(
+        arrayOf(
             // overworld
             Items.COBWEB,
             Items.POWDER_SNOW_BUCKET,
@@ -77,7 +77,7 @@ internal object NoFallMLG : Choice("MLG") {
             // nether
             Items.TWISTING_VINES,
         )
-    private val normalItems = netherItems + Items.WATER_BUCKET
+    private val normalItems = arrayOf(Items.WATER_BUCKET) + netherItems
 
     private val itemsForMLG
         get() = if (world.dimension.ultrawarm) netherItems else normalItems
@@ -116,11 +116,11 @@ internal object NoFallMLG : Choice("MLG") {
             val target = currentTarget ?: return@tickHandler
 
             val rayTraceResult = raycast()
-//            debugParameter(
-//                this,
-//                "tickHandler.rayTraceResult",
-//                "hitPos=${rayTraceResult.blockPos}, side=${rayTraceResult.side}, type=${rayTraceResult.type}"
-//            )
+
+            if (!target.doesCorrespondTo(rayTraceResult)) {
+                return@tickHandler
+            }
+
             SilentHotbar.selectSlotSilently(this, target.hotbarItemSlot, 1)
 
             val onSuccess: () -> Boolean = {

@@ -49,7 +49,6 @@ object ModuleCrystalAura : ClientModule(
     "CrystalAura",
     Category.COMBAT,
     aliases = listOf("AutoCrystal"),
-    disableOnQuit = true
 ) {
 
     val targetTracker = tree(

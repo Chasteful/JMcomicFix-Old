@@ -148,6 +148,7 @@ enum class BlockTargetingMode {
     REPLACE_EXISTING_BLOCK
 }
 
+@Suppress("CognitiveComplexMethod","LongMethod")
 private fun findBestTargetPlanForTargetPosition(
     posToInvestigate: BlockPos,
     mode: BlockTargetingMode,
@@ -164,11 +165,13 @@ private fun findBestTargetPlanForTargetPosition(
 
     // First, try to find plans with valid aiming points within reach
     val validPlans = directions.mapNotNull { direction ->
-        val targetPlan = getTargetPlanForPositionAndDirection(posToInvestigate, direction, mode) ?: return@mapNotNull null
+        val targetPlan = getTargetPlanForPositionAndDirection(
+            posToInvestigate, direction, mode) ?: return@mapNotNull null
 
         // Check if the target face is pointing away from the player
         if (!targetFindingOptions.faceHandlingOptions.considerFacingAwayFaces &&
-            targetPlan.calculateAngleToPlayerEyeCosine(targetFindingOptions.playerLocationOnPlacement.position) < 0
+            targetPlan.calculateAngleToPlayerEyeCosine(
+                targetFindingOptions.playerLocationOnPlacement.position) < 0
         ) {
             return@mapNotNull null
         }
@@ -176,7 +179,8 @@ private fun findBestTargetPlanForTargetPosition(
         val currPos = targetPlan.blockPosToInteractWith
         val currState = currPos.getState() ?: return@mapNotNull null
 
-        val shapeBBs = currState.getOutlineShape(world, currPos, ShapeContext.of(player)).boundingBoxes
+        val shapeBBs = currState.getOutlineShape(world, currPos,
+            ShapeContext.of(player)).boundingBoxes
 
         // For this direction, find the best (min angle) aiming point across BBs that is within reach
         var minAngleForDir = Double.MAX_VALUE
@@ -184,12 +188,17 @@ private fun findBestTargetPlanForTargetPosition(
             val face = bb.getFace(targetPlan.interactionDirection)
             var searchFace = face
 
-            // Try to aim at the upper portion of the block which makes it easier to switch from full blocks to half blocks
+            /**
+             * Try to aim at the upper portion of the block ,
+             *
+             * which makes it easier to switch from full blocks to half blocks
+             */
             if (searchFace.to.y >= 0.9) {
                 searchFace = searchFace.truncateY(0.6).requireNonEmpty() ?: face
             }
 
-            val relativePoint = targetFindingOptions.faceHandlingOptions.facePositionFactory.producePositionOnFace(searchFace, currPos)
+            val relativePoint = targetFindingOptions.faceHandlingOptions.facePositionFactory.producePositionOnFace(
+                searchFace, currPos)
                 ?: continue
 
             val absPoint = relativePoint + Vec3d.of(currPos)
@@ -216,10 +225,12 @@ private fun findBestTargetPlanForTargetPosition(
 
     // Fallback: original method without reach check, using centers
     val fallbackOptions = directions.mapNotNull { direction ->
-        val targetPlan = getTargetPlanForPositionAndDirection(posToInvestigate, direction, mode) ?: return@mapNotNull null
+        val targetPlan = getTargetPlanForPositionAndDirection(
+            posToInvestigate, direction, mode) ?: return@mapNotNull null
 
         if (!targetFindingOptions.faceHandlingOptions.considerFacingAwayFaces &&
-            targetPlan.calculateAngleToPlayerEyeCosine(targetFindingOptions.playerLocationOnPlacement.position) < 0
+            targetPlan.calculateAngleToPlayerEyeCosine(
+                targetFindingOptions.playerLocationOnPlacement.position) < 0
         ) {
             return@mapNotNull null
         }

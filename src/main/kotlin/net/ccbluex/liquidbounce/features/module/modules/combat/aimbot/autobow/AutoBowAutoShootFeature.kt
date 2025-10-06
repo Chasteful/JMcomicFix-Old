@@ -11,6 +11,7 @@ import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
 import net.ccbluex.liquidbounce.utils.entity.PlayerSimulationCache
 import net.ccbluex.liquidbounce.utils.entity.SimulatedArrow
 import net.ccbluex.liquidbounce.utils.entity.SimulatedPlayerCache
+import net.ccbluex.liquidbounce.utils.inventory.interactItem
 import net.ccbluex.liquidbounce.utils.math.geometry.Line
 import net.ccbluex.liquidbounce.utils.render.trajectory.TrajectoryInfo
 import net.minecraft.client.network.AbstractClientPlayerEntity
@@ -19,7 +20,6 @@ import net.minecraft.item.BowItem
 import net.minecraft.item.CrossbowItem
 import net.minecraft.item.TridentItem
 import net.minecraft.util.Hand
-import net.minecraft.util.math.Box
 import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.Vec3d
 
@@ -64,7 +64,6 @@ object AutoBowAutoShootFeature : ToggleableConfigurable(ModuleAutoBow, "AutoShoo
         forceUncharged = false
 
         val currentItem = player.activeItem?.item
-        val hand = Hand.MAIN_HAND
         val stack = player.mainHandStack
 
         when (currentItem) {
@@ -117,7 +116,7 @@ object AutoBowAutoShootFeature : ToggleableConfigurable(ModuleAutoBow, "AutoShoo
         if (currentItem is CrossbowItem) {
             val isChargedNow = CrossbowItem.isCharged(stack)
             if (isChargedNow) {
-                mc.interactionManager?.interactItem(player, hand)
+                interactItem(Hand.MAIN_HAND)
                 ModuleAutoBow.lastShotTimer.reset()
             } else {
                 forceUncharged = true

@@ -16,7 +16,9 @@ import net.minecraft.entity.Entity
 import java.io.RandomAccessFile
 
 
-object ModuleAutoEZ : ClientModule("AutoEz", Category.MISC, aliases = listOf("AutoL")) {
+object ModuleAutoEZ : ClientModule("AutoEZ", Category.MISC, aliases = listOf("AutoL")) {
+    override val baseKey: String
+        get() = "liquidbounce.module.autoEZ"
 
     private object WordPatternCustom : Choice("Custom") {
         override val parent: ChoiceConfigurable<*>

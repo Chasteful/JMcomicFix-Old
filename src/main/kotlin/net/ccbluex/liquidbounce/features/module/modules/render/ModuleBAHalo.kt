@@ -23,7 +23,9 @@ import net.minecraft.util.math.Vec3d
 import kotlin.math.cos
 import kotlin.math.sin
 
-object ModuleHalo : ClientModule("Halo", Category.RENDER) {
+object ModuleBAHalo : ClientModule("BAHalo", Category.RENDER, aliases = listOf("BlueArchiveHalo")) {
+    override val baseKey: String
+        get() = "liquidbounce.module.baHalo"
     private val character by enumChoice("Character", HaloImage.ALICE)
 
     private val onlySelf by boolean("OnlySelf", true)

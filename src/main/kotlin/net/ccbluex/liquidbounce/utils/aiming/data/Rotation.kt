@@ -27,8 +27,8 @@ import net.minecraft.util.math.MathHelper
 import net.minecraft.util.math.Vec3d
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.hypot
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 data class Rotation(
     var yaw: Float,
@@ -50,7 +50,7 @@ data class Rotation(
 
             return Rotation(
                 MathHelper.wrapDegrees(Math.toDegrees(atan2(diffZ, diffX)).toFloat() - 90f),
-                MathHelper.wrapDegrees((-Math.toDegrees(atan2(diffY, sqrt(diffX * diffX + diffZ * diffZ)))).toFloat())
+                MathHelper.wrapDegrees((-Math.toDegrees(atan2(diffY, hypot(diffX, diffZ)))).toFloat())
             )
         }
     }
@@ -66,7 +66,7 @@ data class Rotation(
     fun normalize(): Rotation {
         if (isNormalized) return this
 
-        val gcd = RotationUtil.gcd
+        val gcd = RotationUtil.gcd.toFloat()
 
         // We use the [currentRotation] to calculate the normalized rotation, if it's null, we use
         // the player's rotation
@@ -76,12 +76,36 @@ data class Rotation(
         val diff = currentRotation.rotationDeltaTo(this)
 
         // proper rounding
-        val g1 = (diff.deltaYaw / gcd).roundToInt() * gcd
-        val g2 = (diff.deltaPitch / gcd).roundToInt() * gcd
+        val g1 = run {
+            val denomValid = gcd.isFinite()
+            val v = if (denomValid) {
+                diff.deltaYaw / gcd
+            } else {
+                Float.NaN
+            }
+            if (v.isFinite()) {
+                (v.roundToInt() * gcd)
+            } else {
+                0f
+            }
+        }
 
+        val g2 = run {
+            val denomValid = gcd.isFinite()
+            val v = if (denomValid) {
+                diff.deltaPitch / gcd
+            } else {
+                Float.NaN
+            }
+            if (v.isFinite()) {
+                (v.roundToInt() * gcd)
+            } else {
+                0f
+            }
+        }
         // fix rotation
-        val yaw = currentRotation.yaw + g1.toFloat()
-        val pitch = currentRotation.pitch + g2.toFloat()
+        val yaw = currentRotation.yaw + g1
+        val pitch = currentRotation.pitch + g2
 
         return Rotation(yaw, pitch.coerceIn(-90f, 90f), isNormalized = true)
     }
